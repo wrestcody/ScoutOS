@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfplan
+*.tfr
+
+# Ignore downloaded binaries
+tflint
+tfsec
+
+# Ignore python directories used for lambda layers
+**/python/
+*.zip
+
+# Ignore workbench build artifacts
+workbench/backend/
