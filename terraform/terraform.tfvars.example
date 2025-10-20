@@ -1,0 +1,31 @@
+# --------------------------------------------------------------------------------------------------
+# scoutos Core Configuration
+# --------------------------------------------------------------------------------------------------
+# The AWS region where the scoutos engine will be deployed.
+aws_region = "us-east-1"
+
+# A globally unique name for the S3 bucket that will store the evidence.
+# IMPORTANT: You must change this to a unique value.
+evidence_bucket_name = "scoutos-evidence-store-my-unique-name"
+
+# The AWS Account ID of the account you are auditing.
+target_account_id = "123456789012"
+
+# --------------------------------------------------------------------------------------------------
+# GitHub Collector Configuration
+# --------------------------------------------------------------------------------------------------
+# The name of the secret in AWS Secrets Manager that contains your GitHub PAT.
+# This secret must have a key named "GITHUB_TOKEN".
+github_secret_name = "scoutos/github-token"
+
+# The ARN of the secret in AWS Secrets Manager.
+github_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:scoutos/github-token-xxxxxx"
+
+# The GitHub organization or user that owns the repository to be inspected.
+github_organization = "my-github-org"
+
+# The name of the repository to inspect (without the organization prefix).
+github_repo = "my-awesome-repo"
+
+# The name of the branch to inspect.
+github_branch = "main"

@@ -1,0 +1,52 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.request-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.request-form label {
+  font-weight: bold;
+  text-align: left;
+}
+
+.request-form input,
+.request-form select,
+.request-form textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.request-form textarea {
+  min-height: 100px;
+  font-family: monospace;
+}
+
+.card {
+  padding: 2em;
+  margin-top: 1rem;
+  border: 1px solid #555;
+}
+
+pre {
+  text-align: left;
+  background-color: #222;
+  padding: 1rem;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.error {
+  color: #ff6b6b;
+  border: 1px solid #ff6b6b;
+}
