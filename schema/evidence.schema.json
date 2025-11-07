@@ -1,43 +1,89 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "scoutos Evidence Object",
-  "description": "Standardized schema for evidence collected by scoutos collectors.",
+  "title": "scoutos Evidence Attestation",
+  "description": "Standardized in-toto attestation for evidence collected by scoutos collectors.",
   "type": "object",
   "properties": {
-    "evidence_id": {
-      "description": "A unique identifier (UUID) for this piece of evidence.",
+    "_type": {
+      "description": "The type of the in-toto attestation.",
       "type": "string",
-      "format": "uuid"
+      "const": "https://in-toto.io/Statement/v1"
     },
-    "collector_name": {
-      "description": "The name of the collector that gathered this evidence.",
-      "type": "string"
+    "subject": {
+      "description": "The subject of the attestation.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "A unique name describing the artifact.",
+            "type": "string"
+          },
+          "digest": {
+            "description": "A map with hash representations of the artifact.",
+            "type": "object",
+            "properties": {
+              "sha256": {
+                "type": "string"
+              }
+            },
+            "required": ["sha256"]
+          }
+        },
+        "required": ["name", "digest"]
+      }
     },
-    "collection_timestamp": {
-      "description": "The ISO 8601 timestamp of when the evidence was collected.",
+    "predicateType": {
+      "description": "The type of the predicate.",
       "type": "string",
-      "format": "date-time"
+      "const": "https://scoutos.dev/evidence/v1"
     },
-    "target_account_id": {
-      "description": "The ID of the account or environment the evidence was collected from.",
-      "type": "string"
-    },
-    "evidence_payload": {
-      "description": "The actual evidence data, which can be any valid JSON object or array.",
-      "type": ["object", "array"]
-    },
-    "schema_version": {
-        "description": "The version of this schema.",
-        "type": "string",
-        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    "predicate": {
+      "description": "The evidence payload.",
+      "type": "object",
+      "properties": {
+        "evidence_id": {
+          "description": "A unique identifier (UUID) for this piece of evidence.",
+          "type": "string",
+          "format": "uuid"
+        },
+        "collector_name": {
+          "description": "The name of the collector that gathered this evidence.",
+          "type": "string"
+        },
+        "collection_timestamp": {
+          "description": "The ISO 8601 timestamp of when the evidence was collected.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "target_account_id": {
+          "description": "The ID of the account or environment the evidence was collected from.",
+          "type": "string"
+        },
+        "evidence_payload": {
+          "description": "The actual evidence data, which can be any valid JSON object or array.",
+          "type": ["object", "array"]
+        },
+        "schema_version": {
+            "description": "The version of this schema.",
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "collector_name",
+        "collection_timestamp",
+        "target_account_id",
+        "evidence_payload",
+        "schema_version"
+      ]
     }
   },
   "required": [
-    "evidence_id",
-    "collector_name",
-    "collection_timestamp",
-    "target_account_id",
-    "evidence_payload",
-    "schema_version"
+    "_type",
+    "subject",
+    "predicateType",
+    "predicate"
   ]
 }
