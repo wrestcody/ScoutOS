@@ -2,13 +2,23 @@ resource "aws_s3_bucket" "evidence_bucket" {
   bucket = "scoutos-evidence-bucket"
 }
 
+resource "tls_private_key" "signing_key" {
+  algorithm = "ED25519"
+}
+
 resource "aws_secretsmanager_secret" "signing_key" {
   name = "scoutos-signing-key"
 }
 
 resource "aws_secretsmanager_secret_version" "signing_key_version" {
   secret_id     = aws_secretsmanager_secret.signing_key.id
-  secret_string = "placeholder" # In a real-world scenario, generate and store a secure key
+  secret_string = tls_private_key.signing_key.private_key_pem
+}
+
+resource "null_resource" "zip_lambda" {
+  provisioner "local-exec" {
+    command = "zip witness_ingestion.zip witness_ingestion/handler.py"
+  }
 }
 
 resource "aws_iam_role" "ingestion_lambda_role" {
@@ -71,6 +81,8 @@ resource "aws_lambda_function" "ingestion_lambda" {
       SIGNING_KEY_ARN = aws_secretsmanager_secret.signing_key.arn
     }
   }
+
+  depends_on = [null_resource.zip_lambda]
 }
 
 resource "aws_s3_bucket_notification" "evidence_bucket_notification" {
@@ -81,4 +93,8 @@ resource "aws_s3_bucket_notification" "evidence_bucket_notification" {
     events              = ["s3:ObjectCreated:*"]
     filter_prefix       = "evidence/"
   }
+}
+
+output "public_key" {
+  value = tls_private_key.signing_key.public_key_pem
 }

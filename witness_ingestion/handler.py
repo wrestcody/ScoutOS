@@ -48,15 +48,11 @@ def handler(event, context):
         payload_type = "application/vnd.in-toto+json"
 
         envelope = Envelope(payload, payload_type, [])
-        sig = envelope.sign(signer)
-        envelope.signatures = [sig]
+        envelope.sign(signer)
 
         # Upload the signed attestation to Archivista
         archivista_url = os.environ['ARCHIVISTA_URL']
         headers = {'Content-Type': 'application/json'}
-
-        # Convert signatures to dict for to_dict()
-        envelope.signatures = {sig.keyid: sig for sig in envelope.signatures}
         response = requests.post(f"{archivista_url}/upload", json=envelope.to_dict(), headers=headers)
         response.raise_for_status()
 
