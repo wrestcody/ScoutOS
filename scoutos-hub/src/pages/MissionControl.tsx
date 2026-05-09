@@ -66,12 +66,12 @@ function MissionControl() {
       }
   };
 
-  const handleCommitToVault = async (type: string, title: string, content: string) => {
+  const handleCommitToVault = async (type: string, title: string, content: string, crosswalk?: string[], cloudGuidance?: string) => {
       try {
           const res = await fetch('/api/skills/argus/commit', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ type, title, content })
+              body: JSON.stringify({ type, title, content, crosswalk, cloudGuidance })
           });
 
           if (res.ok) {
@@ -195,9 +195,13 @@ function MissionControl() {
               <div className="flex justify-between items-start">
                   <div>
                       <p className="font-semibold text-rose-400">SOC2 Control Gap</p>
-                      <p className="text-muted-foreground text-xs mt-1">Missing access reviews for new S3 buckets. Auto-mapping to CC6.1.</p>
+                      <p className="text-muted-foreground text-xs mt-1">Missing access reviews for new S3 buckets.</p>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                          <span className="text-[9px] font-mono bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded">SOC2 CC6.1</span>
+                          <span className="text-[9px] font-mono bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded">NIST AC-3</span>
+                      </div>
                   </div>
-                  <Button variant="outline" size="sm" className="h-6 text-[10px] uppercase border-rose-500/30 hover:bg-rose-500/10" onClick={() => handleCommitToVault('Risk', 'SOC2 Control Gap', 'Missing access reviews for new S3 buckets. Auto-mapping to CC6.1.')}>
+                  <Button variant="outline" size="sm" className="h-6 text-[10px] uppercase border-rose-500/30 hover:bg-rose-500/10" onClick={() => handleCommitToVault('Risk', 'SOC2 Control Gap', 'Missing access reviews for new S3 buckets.', ['SOC2 CC6.1', 'NIST 800-53 AC-3'], 'Implement S3 Bucket Policies to restrict s3:GetObject. Configure AWS Macie.')}>
                       Commit to Vault
                   </Button>
               </div>

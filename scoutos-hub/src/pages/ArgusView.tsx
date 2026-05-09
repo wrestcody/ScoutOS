@@ -38,11 +38,27 @@ function ArgusView() {
                 <h2 className="font-mono text-sm text-rose-400/80 font-semibold tracking-wider">SECURITY RISKS</h2>
             </div>
             <ScrollArea className="flex-grow p-6">
-                <div className="p-4 bg-white/5 rounded border border-rose-500/20 font-sans mb-4">
+                <div className="p-4 bg-white/5 rounded border border-rose-500/20 font-sans mb-4 relative">
                     <p className="font-semibold text-rose-400 text-lg">SOC2 Control Gap</p>
-                    <p className="text-muted-foreground text-sm mt-2">Missing access reviews for new S3 buckets. Auto-mapping to CC6.1.</p>
+                    <p className="text-muted-foreground text-sm mt-2">Missing access reviews for new S3 buckets.</p>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        <span className="text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded">Crosswalk: SOC2 CC6.1</span>
+                        <span className="text-[10px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-1 rounded">Crosswalk: NIST 800-53 AC-3</span>
+                    </div>
+
+                    <div className="mt-4 p-3 bg-black/40 border border-white/5 rounded-md">
+                        <p className="font-mono text-[10px] text-emerald-400 mb-1">CLOUD EVIDENCE GUIDANCE (AWS)</p>
+                        <p className="text-muted-foreground text-xs leading-relaxed">
+                            Implement S3 Bucket Policies to restrict `s3:GetObject` and `s3:PutObject`. Configure AWS Macie to automate discovery of sensitive data in these buckets to satisfy CC6.1.
+                        </p>
+                    </div>
+
                     <div className="mt-4 flex gap-2">
-                        <Button variant="outline" size="sm" className="h-8 text-xs uppercase border-rose-500/30 text-rose-400 hover:bg-rose-500/10">Commit to Vault</Button>
+                        <Button variant="outline" size="sm" className="h-8 text-xs uppercase border-rose-500/30 text-rose-400 hover:bg-rose-500/10" onClick={() => {
+                            // Stub for Commit to Vault handler with crosswalk/guidance
+                            console.log("Committing Risk with Crosswalk data to Vault...");
+                        }}>Commit to Vault</Button>
                     </div>
                 </div>
             </ScrollArea>

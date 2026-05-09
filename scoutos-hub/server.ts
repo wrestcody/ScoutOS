@@ -167,7 +167,7 @@ ${result.sitrepContent}
 app.post('/api/skills/argus/commit', async (c) => {
     try {
         const body = c.get('scrubbedBody') || await c.req.json();
-        const { type, title, content } = body;
+        const { type, title, content, crosswalk, cloudGuidance } = body;
 
         const vaultPath = process.env.OBSIDIAN_VAULT_PATH || path.join(process.cwd(), "mock_obsidian");
         const argusSyncDir = path.join(vaultPath, "00_Inbox", "Argus_Sync");
@@ -181,10 +181,22 @@ app.post('/api/skills/argus/commit', async (c) => {
         const fileName = `${dateStr}-${type}-${safeTitle}.md`;
         const filePath = path.join(argusSyncDir, fileName);
 
+        let crosswalkYaml = "";
+        let crosswalkBody = "";
+        if (crosswalk && crosswalk.length > 0) {
+            crosswalkYaml = `\ncrosswalk: [${crosswalk.map((c: string) => `"${c}"`).join(', ')}]`;
+            crosswalkBody = `\n**Crosswalk Mappings:**\n${crosswalk.map((c: string) => `- ${c}`).join('\n')}\n`;
+        }
+
+        let cloudGuidanceBody = "";
+        if (cloudGuidance) {
+             cloudGuidanceBody = `\n**Cloud Guidance:**\n${cloudGuidance}\n`;
+        }
+
         const markdownContent = `---
 date: ${new Date().toISOString()}
 tags: [scoutos, argus, ${type.toLowerCase()}]
-status: pending_review
+status: pending_review${crosswalkYaml}
 ---
 
 # ${title}
@@ -192,7 +204,7 @@ status: pending_review
 **Type:** ${type}
 
 ${content}
-
+${crosswalkBody}${cloudGuidanceBody}
 ---
 *Auto-committed by ScoutOS Argus Node*
 `;
