@@ -130,12 +130,32 @@ function MissionControl() {
       }
   };
 
+  const [aiMode, setAiMode] = useState<'local' | 'cloud'>('local');
+
+  useEffect(() => {
+      fetch('/api/config')
+          .then(res => res.json())
+          .then(data => setAiMode(data.mode))
+          .catch(e => console.error("Failed to load config", e));
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground p-4 md:p-6 grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-12 grid-rows-[auto_1fr_1fr] h-screen overflow-hidden">
 
       {/* Header */}
       <header className="col-span-full flex items-center justify-between glass-panel p-4 rounded-xl">
-        <h1 className="text-2xl font-serif font-semibold tracking-wide text-emerald-400">ScoutOS <span className="text-muted-foreground text-lg">Director HUD</span></h1>
+        <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-serif font-semibold tracking-wide text-emerald-400">ScoutOS <span className="text-muted-foreground text-lg">Director HUD</span></h1>
+            {aiMode === 'local' ? (
+                <span className="font-mono text-[10px] uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-1 rounded flex items-center gap-2">
+                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> LOCAL AIR-GAP ACTIVE
+                </span>
+            ) : (
+                <span className="font-mono text-[10px] uppercase bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-1 rounded flex items-center gap-2">
+                   <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></div> CLOUD MODE ACTIVE
+                </span>
+            )}
+        </div>
         <div className="flex gap-4 font-mono text-xs text-muted-foreground">
           <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> VANGUARD: ACTIVE</span>
           <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> ARGUS: ACTIVE</span>

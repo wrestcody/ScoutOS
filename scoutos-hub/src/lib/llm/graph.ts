@@ -1,5 +1,5 @@
 import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
-import { localLLM, SENTINEL_SYSTEM_PROMPT, SITREP_SYSTEM_PROMPT } from "./config";
+import { getLLM, SENTINEL_SYSTEM_PROMPT, SITREP_SYSTEM_PROMPT } from "./config";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { queryDeepRecall, getRecentVaultNotes } from "./rag";
 
@@ -34,7 +34,8 @@ ${contextBlock}
 
 Provide a direct assessment and a proposed nudge for the assigned engineer. Ensure the proposed nudge incorporates the Contextual Reference if one is provided.`;
 
-  const response = await localLLM.invoke([
+  const llm = getLLM();
+  const response = await llm.invoke([
     new SystemMessage(SENTINEL_SYSTEM_PROMPT),
     new HumanMessage(prompt)
   ]);
@@ -79,7 +80,8 @@ Include sections for Technical Decisions, Mitigated Risks, and Stale Ops.
 Context:
 ${recentContext}`;
 
-    const response = await localLLM.invoke([
+    const llm = getLLM();
+    const response = await llm.invoke([
         new SystemMessage(SITREP_SYSTEM_PROMPT),
         new HumanMessage(prompt)
     ]);
@@ -88,7 +90,7 @@ ${recentContext}`;
 
     // 3. Generate BLUF summary for Terminal
     const blufPrompt = `Generate a strict 2-sentence BLUF (Bottom Line Up Front) summary of the following SITREP:\n\n${sitrepContent}`;
-    const blufResponse = await localLLM.invoke([
+    const blufResponse = await llm.invoke([
          new SystemMessage(`You are a summarization node. Tone: Military brevity. Max length: 2 sentences.`),
          new HumanMessage(blufPrompt)
     ]);

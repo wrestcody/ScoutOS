@@ -58,6 +58,11 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { sitrepGraph } from "./src/lib/llm/graph.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
+// --- Privacy Configuration Endpoint ---
+app.get('/api/config', (c) => {
+    return c.json({ mode: process.env.VITE_AI_MODE || 'local' });
+});
+
 // --- Atlassian MCP Integration ---
 let mcpClient: Client | null = null;
 let mcpTransport: StdioClientTransport | null = null;
@@ -80,6 +85,11 @@ const initMCP = async () => {
 
 app.post('/api/skills/fulcrum/hla', async (c) => {
     try {
+        if (process.env.VITE_AI_MODE !== 'cloud') {
+             console.log("[INFO] MCP blocked due to Air-Gap mode (VITE_AI_MODE=local)");
+             return c.json({ success: false, error: "Air-Gapped: External MCP connections disabled." }, 403);
+        }
+
         const body = c.get('scrubbedBody') || await c.req.json();
         const { title, content } = body;
 
@@ -231,6 +241,11 @@ function scrubArmor(text: string): string {
 }
 
 app.get('/api/skills/vanguard/genesys', async (c) => {
+    if (process.env.VITE_AI_MODE !== 'cloud') {
+         console.log("[INFO] Vanguard blocked Genesys poll due to Air-Gap mode.");
+         return c.json([{ id: 'mock-1', type: 'CHAT', priority: 'HIGH', message: '[AIR-GAPPED] Mock Urgent SOC request.' }]);
+    }
+
     if (!process.env.GENESYS_CLIENT_ID || !process.env.GENESYS_CLIENT_SECRET) {
         return c.json({ error: "Missing Genesys credentials" }, 500);
     }
@@ -269,6 +284,11 @@ app.get('/api/skills/vanguard/genesys', async (c) => {
 });
 
 app.get('/api/skills/vanguard/graph', async (c) => {
+    if (process.env.VITE_AI_MODE !== 'cloud') {
+         console.log("[INFO] Vanguard blocked MS Graph poll due to Air-Gap mode.");
+         return c.json([{ id: 'mock-1', type: 'EMAIL', subject: 'Air-Gapped Briefing', message: 'Local mode active. No external emails pulled.' }]);
+    }
+
     if (!process.env.MS_GRAPH_CLIENT_ID || !process.env.MS_GRAPH_CLIENT_SECRET || !process.env.MS_GRAPH_TENANT_ID) {
         return c.json({ error: "Missing MS Graph credentials" }, 500);
     }

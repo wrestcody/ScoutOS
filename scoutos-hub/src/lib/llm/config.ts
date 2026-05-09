@@ -1,4 +1,5 @@
 import { ChatOllama } from "@langchain/ollama";
+import { ChatOpenAI } from "@langchain/openai";
 
 // Director-Level Tone Prompts
 export const VANGUARD_SYSTEM_PROMPT = `You are VanguardNode, the perimeter intelligence intake for ScoutOS.
@@ -20,3 +21,16 @@ export const localLLM = new ChatOllama({
   model: "llama3.1",
   temperature: 0.1, // Low temp for more deterministic, authoritative outputs
 });
+
+export const cloudLLM = new ChatOpenAI({
+  modelName: "gpt-4-turbo",
+  temperature: 0.1,
+  openAIApiKey: process.env.OPENAI_API_KEY || "mock-key", // The backend will inject the real key or fail gracefully if missing
+});
+
+export const getLLM = () => {
+   if (process.env.VITE_AI_MODE === 'cloud') {
+       return cloudLLM;
+   }
+   return localLLM;
+};
