@@ -109,3 +109,32 @@ export async function queryDeepRecall(query: string, topK: number = 2): Promise<
         return "";
     }
 }
+
+/**
+ * Retrieves recently created Markdown files for SITREP aggregation.
+ */
+export async function getRecentVaultNotes(days: number = 7): Promise<string> {
+    const targetDirs = ["00_Inbox/Argus_Sync/**/*.md", "Projects/**/*.md"];
+    let allFiles: string[] = [];
+
+    for (const dirPattern of targetDirs) {
+        const files = glob.sync(path.join(OBSIDIAN_VAULT_PATH, dirPattern));
+        allFiles = allFiles.concat(files);
+    }
+
+    const recentDocs = [];
+    const now = Date.now();
+    const cutoff = now - (days * 24 * 60 * 60 * 1000);
+
+    for (const file of allFiles) {
+        const stats = fs.statSync(file);
+        if (stats.mtimeMs >= cutoff) {
+            const content = fs.readFileSync(file, 'utf-8');
+            recentDocs.push(`Source: ${path.basename(file)}\n${content}`);
+        }
+    }
+
+    if (recentDocs.length === 0) return "No recent notes found.";
+
+    return scrubText(recentDocs.join("\n\n---\n\n"));
+}

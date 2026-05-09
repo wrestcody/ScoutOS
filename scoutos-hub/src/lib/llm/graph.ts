@@ -1,7 +1,7 @@
 import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
-import { localLLM, SENTINEL_SYSTEM_PROMPT } from "./config";
+import { localLLM, SENTINEL_SYSTEM_PROMPT, SITREP_SYSTEM_PROMPT } from "./config";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
-import { queryDeepRecall } from "./rag";
+import { queryDeepRecall, getRecentVaultNotes } from "./rag";
 
 // Define the state interface
 interface AgentState {
@@ -59,3 +59,54 @@ const builder = new StateGraph<AgentState>({
   .addEdge("sentinel", END);
 
 export const sentinelGraph = builder.compile({ checkpointer: new MemorySaver() });
+
+// --- SITREP Engine Graph ---
+interface SitrepState {
+  sitrepContent?: string;
+  blufSummary?: string;
+}
+
+const sitrepNode = async (_state: SitrepState) => {
+    console.log(`[INFO] Triggering SITREP Generation...`);
+
+    // 1. Gather recent notes
+    const recentContext = await getRecentVaultNotes(7);
+
+    // 2. Generate full SITREP
+    const prompt = `Based on the following extractions from the last 7 days, generate a comprehensive executive Situation Report (SITREP) in Markdown format.
+Include sections for Technical Decisions, Mitigated Risks, and Stale Ops.
+
+Context:
+${recentContext}`;
+
+    const response = await localLLM.invoke([
+        new SystemMessage(SITREP_SYSTEM_PROMPT),
+        new HumanMessage(prompt)
+    ]);
+
+    const sitrepContent = response.content as string;
+
+    // 3. Generate BLUF summary for Terminal
+    const blufPrompt = `Generate a strict 2-sentence BLUF (Bottom Line Up Front) summary of the following SITREP:\n\n${sitrepContent}`;
+    const blufResponse = await localLLM.invoke([
+         new SystemMessage(`You are a summarization node. Tone: Military brevity. Max length: 2 sentences.`),
+         new HumanMessage(blufPrompt)
+    ]);
+
+    return {
+        sitrepContent,
+        blufSummary: blufResponse.content as string
+    };
+};
+
+const sitrepBuilder = new StateGraph<SitrepState>({
+    channels: {
+        sitrepContent: null,
+        blufSummary: null,
+    }
+})
+    .addNode("sitrep", sitrepNode)
+    .addEdge(START, "sitrep")
+    .addEdge("sitrep", END);
+
+export const sitrepGraph = sitrepBuilder.compile({ checkpointer: new MemorySaver() });

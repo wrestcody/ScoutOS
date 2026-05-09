@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Button } from "@/components/ui/button"
 
 type LogEntry = {
     id: string;
@@ -40,6 +41,83 @@ function MissionControl() {
 
       return () => clearInterval(interval);
   }, []);
+
+  const handleInitiateHLA = async (title: string, content: string) => {
+      try {
+          const res = await fetch('/api/skills/fulcrum/hla', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title, content })
+          });
+
+          if (res.ok) {
+              setLogs(prev => [...prev, {
+                  id: Math.random().toString(),
+                  timestamp: new Date().toLocaleTimeString(),
+                  level: 'INFO',
+                  message: `Initiated Confluence HLA for: ${title}`
+              }]);
+          } else {
+             console.error("Failed to initiate HLA");
+          }
+      } catch (e) {
+          console.error(e);
+      }
+  };
+
+  const handleCommitToVault = async (type: string, title: string, content: string) => {
+      try {
+          const res = await fetch('/api/skills/argus/commit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type, title, content })
+          });
+
+          if (res.ok) {
+              setLogs(prev => [...prev, {
+                  id: Math.random().toString(),
+                  timestamp: new Date().toLocaleTimeString(),
+                  level: 'INFO',
+                  message: `Committed ${type} to Obsidian Vault: ${title}`
+              }]);
+          } else {
+             console.error("Failed to commit to vault");
+          }
+      } catch (e) {
+          console.error(e);
+      }
+  };
+
+  const handleCommand = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+          const cmd = e.currentTarget.value.trim();
+          e.currentTarget.value = '';
+
+          if (cmd === '/sitrep') {
+              setLogs(prev => [...prev, {
+                  id: Math.random().toString(),
+                  timestamp: new Date().toLocaleTimeString(),
+                  level: 'INFO',
+                  message: `Initiating Friday SITREP generation...`
+              }]);
+
+              try {
+                  const res = await fetch('/api/skills/sitrep', { method: 'POST' });
+                  const data = await res.json();
+                  if (res.ok) {
+                      setLogs(prev => [...prev, {
+                          id: Math.random().toString(),
+                          timestamp: new Date().toLocaleTimeString(),
+                          level: 'INFO',
+                          message: `SITREP Complete. BLUF: ${data.blufSummary}`
+                      }]);
+                  }
+              } catch (e) {
+                  console.error(e);
+              }
+          }
+      }
+  };
 
   const getLogColor = (level: string) => {
       switch(level) {
@@ -90,13 +168,32 @@ function MissionControl() {
           <div className="space-y-4 text-sm">
             <h3 className="font-serif text-lg text-rose-300">Extracted Decisions</h3>
              <div className="p-3 bg-white/5 rounded border border-white/5 font-sans">
-              <p className="font-semibold text-rose-200">Architecture Review - Dec 12</p>
-              <p className="text-muted-foreground text-xs mt-1">Decision: Gate deployment on OPA agent logs.</p>
+              <div className="flex justify-between items-start">
+                  <div>
+                      <p className="font-semibold text-rose-200">Architecture Review - Dec 12</p>
+                      <p className="text-muted-foreground text-xs mt-1">Decision: Gate deployment on OPA agent logs.</p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Button variant="outline" size="sm" className="h-6 text-[10px] uppercase border-white/20 hover:bg-white/10" onClick={() => handleCommitToVault('Decision', 'Architecture Review - Dec 12', 'Gate deployment on OPA agent logs.')}>
+                        Commit to Vault
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-6 text-[10px] uppercase border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" onClick={() => handleInitiateHLA('Architecture Review - Dec 12', 'Gate deployment on OPA agent logs.')}>
+                        Initiate HLA
+                    </Button>
+                  </div>
+              </div>
             </div>
             <h3 className="font-serif text-lg text-rose-300 mt-4">Security Risks</h3>
              <div className="p-3 bg-white/5 rounded border border-rose-500/20 font-sans">
-              <p className="font-semibold text-rose-400">SOC2 Control Gap</p>
-              <p className="text-muted-foreground text-xs mt-1">Missing access reviews for new S3 buckets. Auto-mapping to CC6.1.</p>
+              <div className="flex justify-between items-start">
+                  <div>
+                      <p className="font-semibold text-rose-400">SOC2 Control Gap</p>
+                      <p className="text-muted-foreground text-xs mt-1">Missing access reviews for new S3 buckets. Auto-mapping to CC6.1.</p>
+                  </div>
+                  <Button variant="outline" size="sm" className="h-6 text-[10px] uppercase border-rose-500/30 hover:bg-rose-500/10" onClick={() => handleCommitToVault('Risk', 'SOC2 Control Gap', 'Missing access reviews for new S3 buckets. Auto-mapping to CC6.1.')}>
+                      Commit to Vault
+                  </Button>
+              </div>
             </div>
           </div>
         </ScrollArea>
@@ -123,11 +220,11 @@ function MissionControl() {
       </Card>
 
       {/* Panel D: Terminal (Nerve Feed) */}
-      <Card className="col-span-full glass-panel flex flex-col h-64 mt-4 overflow-hidden">
+      <Card className="col-span-full glass-panel flex flex-col h-64 mt-4 overflow-hidden relative">
         <div className="p-2 border-b border-white/10 bg-black/40 flex justify-between items-center">
           <h2 className="font-mono text-xs text-muted-foreground tracking-wider">NERVE FEED // TERMINAL</h2>
         </div>
-        <ScrollArea className="flex-grow p-4 bg-black/60 font-mono text-[11px] leading-relaxed">
+        <ScrollArea className="flex-grow p-4 pb-12 bg-black/60 font-mono text-[11px] leading-relaxed">
           <div className="space-y-1">
               {logs.map(log => (
                   <div key={log.id} className={getLogColor(log.level)}>
@@ -136,6 +233,15 @@ function MissionControl() {
               ))}
           </div>
         </ScrollArea>
+        <div className="absolute bottom-0 w-full p-2 bg-black/80 border-t border-white/10 flex items-center">
+             <span className="text-emerald-400 font-mono text-xs mr-2">❯</span>
+             <input
+                 type="text"
+                 className="flex-grow bg-transparent border-none outline-none font-mono text-xs text-foreground placeholder:text-muted-foreground"
+                 placeholder="Type /sitrep to generate executive summary..."
+                 onKeyDown={handleCommand}
+             />
+        </div>
       </Card>
     </div>
   )
