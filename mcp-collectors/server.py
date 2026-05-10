@@ -15,6 +15,35 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP("scoutos-collectors")
 
 import subprocess
+from securesystemslib.signer import CryptoSigner
+from securesystemslib.dsse import Envelope
+
+def sign_evidence(payload: dict) -> dict:
+    """Signs the JSON payload using DSSE and a local PEM key."""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    key_path = os.path.join(base_dir, "test_key.pem")
+
+    if not os.path.exists(key_path):
+        logger.warning("No test_key.pem found. Generating a temporary one for testing.")
+        # Fallback for testing if key generation script wasn't run
+        import subprocess
+        subprocess.run(["python", os.path.join(base_dir, "gen_key.py")], check=True)
+
+    with open(key_path, 'rb') as f:
+        pem_bytes = f.read()
+
+    # Standard Witness/in-toto payload type
+    payload_type = "application/vnd.in-toto+json"
+
+    # Create signer
+    signer = CryptoSigner.from_pem(pem_bytes)
+
+    # Create and sign envelope
+    payload_bytes = json.dumps(payload).encode('utf-8')
+    envelope = Envelope.sign(signer, payload_bytes, payload_type)
+
+    return envelope.to_dict()
+
 
 def run_rex_script(script_name: str) -> dict:
     """Helper to execute a Rex script and return the JSON output."""
@@ -36,14 +65,38 @@ def run_rex_script(script_name: str) -> dict:
     ]
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        return json.loads(result.stdout.strip())
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Rex Execution Failed: {e.stderr}")
-        raise RuntimeError(f"Rex policy execution denied or failed: {e.stderr}")
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse Rex output: {result.stdout}")
-        raise RuntimeError(f"Invalid Rex output format: {e}")
+        # Check=False so we can inspect the exit code ourselves
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        # For the human output format, if rex-runner encounters an error (e.g. PermissionDenied),
+        # it prints the error to stderr and exists with code 1. Or, if it's returning the JSON structure
+        # it might have a "status":"ERROR" inside stdout.
+
+        # If rex-runner fails out with exit code != 0, it means the script failed to run
+        # or threw a hard error (like a permission denied).
+        # Sometimes rex-runner writes to stderr, sometimes to stdout.
+        if result.returncode != 0:
+            error_msg = result.stderr if result.stderr else result.stdout
+            logger.error(f"Rex Execution Failed: {error_msg}")
+            raise RuntimeError(f"Rex policy execution denied or failed: {error_msg}")
+
+        # Even with returncode 0, if 'PermissionDenied' is in the output (some formats), catch it
+        if "PermissionDenied" in result.stdout or "PermissionDenied" in result.stderr:
+             raise RuntimeError(f"Rex policy execution denied or failed: {result.stdout} {result.stderr}")
+
+        try:
+            parsed = json.loads(result.stdout.strip())
+            # Sometimes rex-runner returns a wrapper object on error even if returncode is 0 depending on format
+            if isinstance(parsed, dict) and parsed.get("status") == "ERROR":
+                raise RuntimeError(f"Rex policy execution denied or failed: {json.dumps(parsed)}")
+            return parsed
+        except json.JSONDecodeError as e:
+            # Maybe the output wasn't json, though our rhai scripts use to_json()
+            # If the script failed and printed plain text:
+            raise RuntimeError(f"Invalid Rex output format. Raw output: {result.stdout.strip()}")
+
+    except Exception as e:
+        raise RuntimeError(f"Rex execution error: {str(e)}")
 
 @mcp.tool()
 def collect_aws_iam_password_policy(evidence_bucket: str, target_account_id: str) -> str:
@@ -74,17 +127,19 @@ def collect_aws_iam_password_policy(evidence_bucket: str, target_account_id: str
     file_name = f"aws-iam-password-policy/{target_account_id}/{evidence['evidence_id']}.json"
 
     try:
+        signed_envelope = sign_evidence(evidence)
         s3_client = boto3.client('s3')
         s3_client.put_object(
             Bucket=evidence_bucket,
             Key=file_name,
-            Body=json.dumps(evidence, indent=2),
+            Body=json.dumps(signed_envelope, indent=2),
             ContentType='application/json'
         )
-        return f"Successfully wrote evidence to s3://{evidence_bucket}/{file_name}"
+        return f"Successfully wrote signed evidence to s3://{evidence_bucket}/{file_name}"
     except Exception as e:
         logger.error(f"Failed to write to S3 bucket {evidence_bucket}: {e}")
-        return f"Would have written to S3, but failed: {e}\nPayload: {json.dumps(evidence)}"
+        signed_envelope = sign_evidence(evidence)
+        return f"Would have written to S3, but failed: {e}\nSigned Envelope: {json.dumps(signed_envelope)}"
 
 @mcp.tool()
 def collect_github_branch_protection(evidence_bucket: str, repository: str) -> str:
@@ -110,7 +165,9 @@ def collect_github_branch_protection(evidence_bucket: str, repository: str) -> s
         "schema_version": "1.0.0"
     }
 
-    return f"Collected GitHub branch protection data via Rex for {repository}: {json.dumps(evidence)}"
+    signed_envelope = sign_evidence(evidence)
+
+    return f"Collected GitHub branch protection data via Rex for {repository}:\n{json.dumps(signed_envelope)}"
 
 if __name__ == "__main__":
     mcp.run(transport='stdio')
