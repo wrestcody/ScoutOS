@@ -67,7 +67,7 @@ interface SitrepState {
   blufSummary?: string;
 }
 
-const sitrepNode = async (_state: SitrepState) => {
+const sitrepNode = async () => {
     console.log(`[INFO] Triggering SITREP Generation...`);
 
     // 1. Gather recent notes

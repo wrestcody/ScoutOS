@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { logger } from 'hono/logger'
 
 type Variables = {
-  scrubbedBody: any
+  scrubbedBody: unknown
 }
 
 const app = new Hono<{ Variables: Variables }>()
@@ -77,6 +77,16 @@ const initMCP = async () => {
         });
         mcpClient = new Client({ name: "scoutos-hub", version: "1.0.0" }, { capabilities: {} });
         await mcpClient.connect(mcpTransport);
+        console.log("[INFO] MCP Client Connected Successfully.");
+
+        // Also initialize custom ScoutOS MCP Python server locally
+        const pythonMcpTransport = new StdioClientTransport({
+            command: "python",
+            args: ["../mcp-collectors/server.py"]
+        });
+        const pythonMcpClient = new Client({ name: "scoutos-python-mcp", version: "1.0.0" }, { capabilities: {} });
+        await pythonMcpClient.connect(pythonMcpTransport);
+        console.log("[INFO] Custom Python MCP Client Connected Successfully.");
         console.log("[INFO] MCP Client Connected Successfully.");
     } catch (e) {
         console.error("[ERROR] Failed to initialize MCP:", e);
