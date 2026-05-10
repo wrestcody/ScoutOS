@@ -2,4 +2,4 @@ mcp
 boto3
 in-toto
 securesystemslib
-pytest
+openai-whisper

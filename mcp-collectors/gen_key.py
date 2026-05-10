@@ -1,21 +1,17 @@
 from securesystemslib.signer import CryptoSigner
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import serialization
+import json
 import os
 
 def generate_and_save_key():
+    # Use securesystemslib's key generation
+    from securesystemslib.interface import generate_and_write_ecdsa_keypair
+
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    key_path = os.path.join(base_dir, "test_key.pem")
+    key_path = os.path.join(base_dir, "test_key")
 
-    private_key = ec.generate_private_key(ec.SECP256R1())
-    pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption()
-    )
-
-    with open(key_path, 'wb') as f:
-        f.write(pem)
+    # generate an ECDSA private key and write it to test_key
+    # The default key generation creates an unencrypted PEM file
+    generate_and_write_ecdsa_keypair(key_path)
 
     print(f"Generated test key at {key_path}")
 

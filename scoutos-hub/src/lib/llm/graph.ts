@@ -112,3 +112,46 @@ const sitrepBuilder = new StateGraph<SitrepState>({
     .addEdge("sitrep", END);
 
 export const sitrepGraph = sitrepBuilder.compile({ checkpointer: new MemorySaver() });
+
+// --- Audio Transcription Processor Graph ---
+interface AudioProcessorState {
+  transcript: string;
+  extractedDecisions?: string;
+  extractedRisks?: string;
+  hlaScaffold?: string;
+}
+
+const extractIntelligenceNode = async (state: AudioProcessorState) => {
+    console.log(`[INFO] Extracting Intelligence from Audio Transcript...`);
+    const llm = getLLM();
+
+    const decisionPrompt = `Extract key technical decisions from the following transcript. Format as a bulleted list. If none, output "None."\n\nTranscript:\n${state.transcript}`;
+    const riskPrompt = `Extract security risks or compliance concerns from the following transcript. Format as a bulleted list. If none, output "None."\n\nTranscript:\n${state.transcript}`;
+    const hlaPrompt = `Based on the following transcript, scaffold a High Level Architecture (HLA) document in markdown format. Include an Executive Summary, Architecture Diagram Description, and Security Considerations.\n\nTranscript:\n${state.transcript}`;
+
+    const [decisionsResponse, risksResponse, hlaResponse] = await Promise.all([
+        llm.invoke([new HumanMessage(decisionPrompt)]),
+        llm.invoke([new HumanMessage(riskPrompt)]),
+        llm.invoke([new HumanMessage(hlaPrompt)])
+    ]);
+
+    return {
+        extractedDecisions: decisionsResponse.content as string,
+        extractedRisks: risksResponse.content as string,
+        hlaScaffold: hlaResponse.content as string
+    };
+};
+
+const audioProcessorBuilder = new StateGraph<AudioProcessorState>({
+    channels: {
+        transcript: null,
+        extractedDecisions: null,
+        extractedRisks: null,
+        hlaScaffold: null,
+    }
+})
+    .addNode("extractIntelligence", extractIntelligenceNode)
+    .addEdge(START, "extractIntelligence")
+    .addEdge("extractIntelligence", END);
+
+export const audioProcessorGraph = audioProcessorBuilder.compile({ checkpointer: new MemorySaver() });

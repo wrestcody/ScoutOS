@@ -2,12 +2,106 @@ import { Link } from 'react-router-dom';
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
+import { useState, useRef } from 'react';
+import { Mic, Square, Loader2 } from 'lucide-react';
 
 function ArgusView() {
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
+
+  const handleStartRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        setIsProcessing(true);
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'recording.webm');
+
+        try {
+          // Send to the backend endpoint we will create
+          const response = await fetch('/api/skills/argus/transcribe', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            console.error("Transcription failed", await response.text());
+          } else {
+            const data = await response.json();
+            console.log("Transcription result:", data);
+            // Here we would ideally add the transcription to the UI,
+            // but for now logging is sufficient to show integration.
+          }
+        } catch (e) {
+          console.error("Failed to send audio", e);
+        } finally {
+          setIsProcessing(false);
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+
+      // Stop all tracks to release the microphone
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground p-4 md:p-6 flex flex-col gap-4">
       <header className="flex items-center justify-between glass-panel p-4 rounded-xl">
-        <h1 className="text-2xl font-serif font-semibold tracking-wide text-rose-400">ARGUS <span className="text-muted-foreground text-lg">// Intelligence Extraction</span></h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-serif font-semibold tracking-wide text-rose-400">ARGUS <span className="text-muted-foreground text-lg">// Intelligence Extraction</span></h1>
+
+          <div className="h-6 w-px bg-white/20 mx-2"></div>
+
+          {!isRecording ? (
+             <Button
+                variant="outline"
+                size="sm"
+                onClick={handleStartRecording}
+                disabled={isProcessing}
+                className="border-red-500/30 text-red-400 hover:bg-red-500/10 uppercase text-xs flex items-center gap-2"
+              >
+                {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mic className="w-3 h-3" />}
+                {isProcessing ? "Processing..." : "Record Intake"}
+             </Button>
+          ) : (
+             <Button
+                variant="outline"
+                size="sm"
+                onClick={handleStopRecording}
+                className="border-red-500 text-red-400 bg-red-500/20 hover:bg-red-500/30 uppercase text-xs flex items-center gap-2 animate-pulse"
+              >
+                <Square className="w-3 h-3 fill-current" />
+                Stop Recording
+             </Button>
+          )}
+        </div>
+
         <div className="flex gap-4">
            <Button variant="outline" size="sm" className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 uppercase text-xs">Run Bulk Extraction</Button>
            <Link to="/">
