@@ -14,28 +14,53 @@ logger = logging.getLogger(__name__)
 # Initialize FastMCP Server
 mcp = FastMCP("scoutos-collectors")
 
+import subprocess
+
+def run_rex_script(script_name: str) -> dict:
+    """Helper to execute a Rex script and return the JSON output."""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.join(base_dir, "rex_policies", f"{script_name}.rhai")
+    policy_path = os.path.join(base_dir, "rex_policies", f"{script_name}.cedar")
+
+    # Ensure rex-runner is accessible
+    rex_bin = os.path.expanduser("~/.cargo/bin/rex-runner")
+    if not os.path.exists(rex_bin):
+        # Fallback to system path if global
+        rex_bin = "rex-runner"
+
+    cmd = [
+        rex_bin,
+        "--script-file", script_path,
+        "--policy-file", policy_path,
+        "--output-format", "human"
+    ]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return json.loads(result.stdout.strip())
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Rex Execution Failed: {e.stderr}")
+        raise RuntimeError(f"Rex policy execution denied or failed: {e.stderr}")
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse Rex output: {result.stdout}")
+        raise RuntimeError(f"Invalid Rex output format: {e}")
+
 @mcp.tool()
 def collect_aws_iam_password_policy(evidence_bucket: str, target_account_id: str) -> str:
     """
-    Collects the AWS IAM password policy and writes it to S3 as evidence.
+    Collects the AWS IAM password policy securely via Trusted Remote Execution (Rex) and writes it to S3.
     Mapped from legacy AWS IAM collector.
 
     Args:
         evidence_bucket: The S3 bucket to write evidence to
         target_account_id: The target AWS account ID
     """
-    logger.info("Starting AWS IAM Password Policy collection...")
+    logger.info("Starting AWS IAM Password Policy collection via Rex...")
 
-    collected_data = {
-        "MinimumPasswordLength": 14,
-        "RequireSymbols": True,
-        "RequireNumbers": True,
-        "RequireUppercaseCharacters": True,
-        "RequireLowercaseCharacters": True,
-        "AllowUsersToChangePassword": True,
-        "MaxPasswordAge": 90,
-        "PasswordReusePrevention": 24
-    }
+    try:
+        collected_data = run_rex_script("aws_iam")
+    except Exception as e:
+        return f"Error executing secure collection script: {e}"
 
     evidence = {
         "evidence_id": str(uuid.uuid4()),
@@ -64,23 +89,28 @@ def collect_aws_iam_password_policy(evidence_bucket: str, target_account_id: str
 @mcp.tool()
 def collect_github_branch_protection(evidence_bucket: str, repository: str) -> str:
     """
-    Collects GitHub branch protection rules.
+    Collects GitHub branch protection rules securely via Trusted Remote Execution (Rex).
     Mapped from legacy GitHub collector.
 
     Args:
         evidence_bucket: The S3 bucket to write evidence to
         repository: The GitHub repository to check (e.g., 'owner/repo')
     """
+    try:
+        collected_data = run_rex_script("github")
+    except Exception as e:
+        return f"Error executing secure collection script: {e}"
+
     evidence = {
         "evidence_id": str(uuid.uuid4()),
         "collector_name": "github-branch-protection",
         "collection_timestamp": datetime.now(timezone.utc).isoformat(),
         "target_repo": repository,
-        "evidence_payload": {"required_reviews": 2, "require_signed_commits": True},
+        "evidence_payload": collected_data,
         "schema_version": "1.0.0"
     }
 
-    return f"Collected GitHub branch protection data for {repository}: {json.dumps(evidence)}"
+    return f"Collected GitHub branch protection data via Rex for {repository}: {json.dumps(evidence)}"
 
 if __name__ == "__main__":
     mcp.run(transport='stdio')
