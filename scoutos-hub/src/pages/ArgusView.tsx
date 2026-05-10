@@ -38,27 +38,60 @@ function ArgusView() {
                 <h2 className="font-mono text-sm text-rose-400/80 font-semibold tracking-wider">SECURITY RISKS</h2>
             </div>
             <ScrollArea className="flex-grow p-6">
-                <div className="p-4 bg-white/5 rounded border border-rose-500/20 font-sans mb-4 relative">
-                    <p className="font-semibold text-rose-400 text-lg">SOC2 Control Gap</p>
-                    <p className="text-muted-foreground text-sm mt-2">Missing access reviews for new S3 buckets.</p>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                        <span className="text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded">Crosswalk: SOC2 CC6.1</span>
-                        <span className="text-[10px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-1 rounded">Crosswalk: NIST 800-53 AC-3</span>
+                {/* Wiz-Style Toxic Combination Card */}
+                <div className="p-5 bg-black/40 rounded border-l-4 border-l-red-600 border border-white/5 font-sans mb-4 relative shadow-lg shadow-red-900/10">
+                    <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-3">
+                            <span className="bg-red-600 text-white font-mono text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">Critical</span>
+                            <p className="font-semibold text-rose-100 text-lg">Public Data Exposure Path</p>
+                        </div>
+                        <span className="text-[10px] font-mono text-muted-foreground">Asset: s3-prod-customer-data</span>
                     </div>
 
-                    <div className="mt-4 p-3 bg-black/40 border border-white/5 rounded-md">
-                        <p className="font-mono text-[10px] text-emerald-400 mb-1">CLOUD EVIDENCE GUIDANCE (AWS)</p>
+                    {/* Attack Path Visualization */}
+                    <div className="my-4 p-3 bg-white/5 rounded flex items-center gap-2 overflow-x-auto">
+                         <div className="flex flex-col items-center flex-shrink-0">
+                             <div className="w-8 h-8 rounded bg-blue-500/20 border border-blue-500/50 flex items-center justify-center text-blue-400">🌐</div>
+                             <span className="text-[9px] font-mono mt-1 text-muted-foreground">Internet</span>
+                         </div>
+                         <div className="text-muted-foreground">➔</div>
+                         <div className="flex flex-col items-center flex-shrink-0">
+                             <div className="w-8 h-8 rounded bg-rose-500/20 border border-rose-500/50 flex items-center justify-center text-rose-400">🔓</div>
+                             <span className="text-[9px] font-mono mt-1 text-muted-foreground">Public S3 Bucket</span>
+                         </div>
+                         <div className="text-red-500 font-bold">➔</div>
+                         <div className="flex flex-col items-center flex-shrink-0">
+                             <div className="w-8 h-8 rounded bg-red-500/20 border border-red-500/50 flex items-center justify-center text-red-400">⚠️</div>
+                             <span className="text-[9px] font-mono mt-1 text-red-400 font-bold">Sensitive PII</span>
+                         </div>
+                    </div>
+
+                    <div className="mb-4">
+                        <p className="text-muted-foreground text-sm leading-relaxed">
+                            <strong className="text-rose-200 font-medium">Impact:</strong> A production S3 bucket containing sensitive customer PII is publicly readable due to a misconfigured bucket policy, enabling unauthenticated external access.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        <span className="text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded">SOC2 CC6.1</span>
+                        <span className="text-[10px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-1 rounded">NIST 800-53 AC-3</span>
+                        <span className="text-[10px] font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-1 rounded">HIPAA 164.312(a)(1)</span>
+                    </div>
+
+                    <div className="mt-4 p-3 bg-emerald-950/20 border border-emerald-500/20 rounded-md">
+                        <p className="font-mono text-[10px] text-emerald-400 mb-1">REMEDIATION GUIDANCE (AWS)</p>
                         <p className="text-muted-foreground text-xs leading-relaxed">
-                            Implement S3 Bucket Policies to restrict `s3:GetObject` and `s3:PutObject`. Configure AWS Macie to automate discovery of sensitive data in these buckets to satisfy CC6.1.
+                            Immediately attach an S3 Block Public Access (BPA) policy at the bucket level. Ensure the `s3:GetObject` permission is restricted to specific VPC Endpoints or IAM roles.
                         </p>
                     </div>
 
                     <div className="mt-4 flex gap-2">
                         <Button variant="outline" size="sm" className="h-8 text-xs uppercase border-rose-500/30 text-rose-400 hover:bg-rose-500/10" onClick={() => {
-                            // Stub for Commit to Vault handler with crosswalk/guidance
                             console.log("Committing Risk with Crosswalk data to Vault...");
                         }}>Commit to Vault</Button>
+                         <Button variant="outline" size="sm" className="h-8 text-xs uppercase border-white/10 text-muted-foreground hover:bg-white/5">
+                            Suppress
+                        </Button>
                     </div>
                 </div>
             </ScrollArea>

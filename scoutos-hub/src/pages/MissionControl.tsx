@@ -211,17 +211,25 @@ function MissionControl() {
               </div>
             </div>
             <h3 className="font-serif text-lg text-rose-300 mt-4">Security Risks</h3>
-             <div className="p-3 bg-white/5 rounded border border-rose-500/20 font-sans">
+            {/* Wiz-Style Minimal Toxic Card for Dashboard */}
+             <div className="p-3 bg-black/40 rounded border-l-2 border-l-red-600 border border-white/5 font-sans relative">
               <div className="flex justify-between items-start">
                   <div>
-                      <p className="font-semibold text-rose-400">SOC2 Control Gap</p>
-                      <p className="text-muted-foreground text-xs mt-1">Missing access reviews for new S3 buckets.</p>
+                      <div className="flex items-center gap-2 mb-1">
+                          <span className="bg-red-600 text-white font-mono text-[8px] px-1.5 py-0.5 rounded font-bold uppercase">Critical</span>
+                          <p className="font-semibold text-rose-100 text-sm">Public Data Exposure Path</p>
+                      </div>
+
+                      <div className="flex items-center gap-1 my-2 text-[10px] text-muted-foreground font-mono">
+                          <span>Internet</span> <span className="text-rose-500">➔</span> <span>S3</span> <span className="text-red-500 font-bold">➔</span> <span className="text-red-400">PII</span>
+                      </div>
+
                       <div className="mt-2 flex flex-wrap gap-1">
                           <span className="text-[9px] font-mono bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded">SOC2 CC6.1</span>
                           <span className="text-[9px] font-mono bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded">NIST AC-3</span>
                       </div>
                   </div>
-                  <Button variant="outline" size="sm" className="h-6 text-[10px] uppercase border-rose-500/30 hover:bg-rose-500/10" onClick={() => handleCommitToVault('Risk', 'SOC2 Control Gap', 'Missing access reviews for new S3 buckets.', ['SOC2 CC6.1', 'NIST 800-53 AC-3'], 'Implement S3 Bucket Policies to restrict s3:GetObject. Configure AWS Macie.')}>
+                  <Button variant="outline" size="sm" className="h-6 text-[10px] uppercase border-rose-500/30 hover:bg-rose-500/10" onClick={() => handleCommitToVault('Risk', 'Public Data Exposure Path', 'A production S3 bucket containing sensitive customer PII is publicly readable.', ['SOC2 CC6.1', 'NIST 800-53 AC-3'], 'Immediately attach an S3 Block Public Access (BPA) policy at the bucket level.')}>
                       Commit to Vault
                   </Button>
               </div>
