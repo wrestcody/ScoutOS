@@ -1,7 +1,7 @@
 import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
 import { getLLM, SENTINEL_SYSTEM_PROMPT, SITREP_SYSTEM_PROMPT } from "./config";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
-import { queryDeepRecall, getRecentVaultNotes } from "./rag";
+import { queryDeepRecall, getRecentVaultNotes, recordAgentMemory } from "./rag";
 
 // Define the state interface
 interface AgentState {
@@ -34,7 +34,8 @@ ${contextBlock}
 
 Provide a direct assessment and a proposed nudge for the assigned engineer. Ensure the proposed nudge incorporates the Contextual Reference if one is provided.`;
 
-  const llm = getLLM();
+  // We pass the prompt to getLLM to enable NadirClaw Cost-Aware routing!
+  const llm = getLLM(prompt);
   const response = await llm.invoke([
     new SystemMessage(SENTINEL_SYSTEM_PROMPT),
     new HumanMessage(prompt)
@@ -80,7 +81,8 @@ Include sections for Technical Decisions, Mitigated Risks, and Stale Ops.
 Context:
 ${recentContext}`;
 
-    const llm = getLLM();
+    // Pass the prompt to trigger Cost-Aware routing
+    const llm = getLLM(prompt);
     const response = await llm.invoke([
         new SystemMessage(SITREP_SYSTEM_PROMPT),
         new HumanMessage(prompt)
@@ -123,22 +125,35 @@ interface AudioProcessorState {
 
 const extractIntelligenceNode = async (state: AudioProcessorState) => {
     console.log(`[INFO] Extracting Intelligence from Audio Transcript...`);
-    const llm = getLLM();
 
     const decisionPrompt = `Extract key technical decisions from the following transcript. Format as a bulleted list. If none, output "None."\n\nTranscript:\n${state.transcript}`;
     const riskPrompt = `Extract security risks or compliance concerns from the following transcript. Format as a bulleted list. If none, output "None."\n\nTranscript:\n${state.transcript}`;
     const hlaPrompt = `Based on the following transcript, scaffold a High Level Architecture (HLA) document in markdown format. Include an Executive Summary, Architecture Diagram Description, and Security Considerations.\n\nTranscript:\n${state.transcript}`;
 
+    // Dynamically route each extraction task using NadirClaw based on the complexity of its specific prompt
+    const decisionLlm = getLLM(decisionPrompt);
+    const riskLlm = getLLM(riskPrompt);
+    const hlaLlm = getLLM(hlaPrompt);
+
     const [decisionsResponse, risksResponse, hlaResponse] = await Promise.all([
-        llm.invoke([new HumanMessage(decisionPrompt)]),
-        llm.invoke([new HumanMessage(riskPrompt)]),
-        llm.invoke([new HumanMessage(hlaPrompt)])
+        decisionLlm.invoke([new HumanMessage(decisionPrompt)]),
+        riskLlm.invoke([new HumanMessage(riskPrompt)]),
+        hlaLlm.invoke([new HumanMessage(hlaPrompt)])
     ]);
 
+    const extractedDecisions = decisionsResponse.content as string;
+    const extractedRisks = risksResponse.content as string;
+    const hlaScaffold = hlaResponse.content as string;
+
+    // Agent-Native Memory Injection: Save a summary of this extraction session
+    // back to the vector database for future context recall.
+    const memorySummary = `Audio Intelligence Extraction Summary:\nDecisions: ${extractedDecisions}\nRisks: ${extractedRisks}`;
+    await recordAgentMemory("Audio_Processing", memorySummary);
+
     return {
-        extractedDecisions: decisionsResponse.content as string,
-        extractedRisks: risksResponse.content as string,
-        hlaScaffold: hlaResponse.content as string
+        extractedDecisions,
+        extractedRisks,
+        hlaScaffold
     };
 };
 

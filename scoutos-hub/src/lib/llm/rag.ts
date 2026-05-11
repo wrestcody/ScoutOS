@@ -50,7 +50,7 @@ export async function indexObsidianVault() {
   }
 
   // Find MD files in target dirs
-  const targetDirs = ["00_Inbox/Argus_Sync/**/*.md", "Projects/**/*.md"];
+  const targetDirs = ["00_Inbox/Argus_Sync/**/*.md", "Projects/**/*.md", "01_Memory_Core/**/*.md"];
   let allFiles: string[] = [];
 
   for (const dirPattern of targetDirs) {
@@ -108,6 +108,42 @@ export async function queryDeepRecall(query: string, topK: number = 2): Promise<
         console.error("[ERROR] Failed to query Deep Recall:", e);
         return "";
     }
+}
+
+/**
+ * Agent-Native Memory Injection:
+ * Records an observation (memory) into a dedicated Obsidian folder,
+ * so it can be indexed and retrieved in future sessions.
+ */
+export async function recordAgentMemory(memoryType: string, content: string): Promise<void> {
+    const memoryDir = path.join(OBSIDIAN_VAULT_PATH, "01_Memory_Core");
+    if (!fs.existsSync(memoryDir)) {
+        fs.mkdirSync(memoryDir, { recursive: true });
+    }
+
+    const timestamp = Date.now();
+    const dateStr = new Date().toISOString().split('T')[0];
+    const safeType = memoryType.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const fileName = `${dateStr}-${safeType}-${timestamp}.md`;
+    const filePath = path.join(memoryDir, fileName);
+
+    const scrubbedContent = scrubText(content);
+
+    const markdownContent = `---
+date: ${new Date().toISOString()}
+tags: [scoutos, memory, ${safeType}]
+---
+
+# Agent Memory: ${memoryType}
+
+${scrubbedContent}
+`;
+
+    fs.writeFileSync(filePath, markdownContent);
+    console.log(`[INFO] Agent Memory committed: ${filePath}`);
+
+    // Trigger a re-index so memory is immediately available
+    await indexObsidianVault();
 }
 
 /**

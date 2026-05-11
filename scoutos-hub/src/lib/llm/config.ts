@@ -28,9 +28,38 @@ export const cloudLLM = new ChatOpenAI({
   openAIApiKey: process.env.OPENAI_API_KEY || "mock-key", // The backend will inject the real key or fail gracefully if missing
 });
 
-export const getLLM = () => {
-   if (process.env.VITE_AI_MODE === 'cloud') {
-       return cloudLLM;
+import { execSync } from 'child_process';
+
+export const getLLM = (promptContext?: string) => {
+   // Strict Air-Gap Check: If local, NEVER use cloud, regardless of prompt complexity
+   if (process.env.VITE_AI_MODE !== 'cloud') {
+       console.log("[LLM ROUTER] Air-Gap active. Forcing local LLM.");
+       return localLLM;
    }
-   return localLLM;
+
+   // If cloud mode is allowed, and we have context, use NadirClaw for Cost-Aware Routing
+   if (promptContext) {
+       try {
+           console.log("[LLM ROUTER] Running NadirClaw Cost-Aware Classification...");
+           // We use NadirClaw CLI to classify the prompt complexity locally
+           // Escaping the prompt string to prevent bash injection
+           const safePrompt = promptContext.replace(/"/g, '\\"');
+           const output = execSync(`nadirclaw classify --format json "${safePrompt}"`).toString();
+           const classification = JSON.parse(output.trim());
+
+           if (classification.tier === 'simple') {
+               console.log("[LLM ROUTER] Cost-Aware Decision: Task is SIMPLE. Routing to local LLM to save costs.");
+               return localLLM;
+           } else {
+               console.log("[LLM ROUTER] Cost-Aware Decision: Task is COMPLEX. Escalating to GPT-4-Turbo.");
+               return cloudLLM;
+           }
+       } catch (e) {
+           console.error("[LLM ROUTER] NadirClaw routing failed, defaulting to Cloud LLM:", e);
+           return cloudLLM;
+       }
+   }
+
+   // Default to cloud if in cloud mode and no prompt context was provided for routing
+   return cloudLLM;
 };

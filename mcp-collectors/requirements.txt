@@ -3,3 +3,8 @@ boto3
 in-toto
 securesystemslib
 openai-whisper
+nadirclaw
+sentence-transformers
+scikit-learn
+pandas
+requests

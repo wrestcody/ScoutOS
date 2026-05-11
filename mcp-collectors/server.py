@@ -130,6 +130,25 @@ def transcribe_audio(file_path: str) -> str:
         return f"Error during transcription: {e}"
 
 @mcp.tool()
+def classify_prompt(prompt: str) -> str:
+    """
+    Cost-Aware LLM Routing: Uses NadirClaw local prompt classification to determine
+    if a prompt should be routed to a 'simple' (cheap/local) or 'complex' (expensive/cloud) model.
+    """
+    logger.info(f"Classifying prompt for routing...")
+    try:
+        r = subprocess.run(
+            ["nadirclaw", "classify", "--format", "json", prompt],
+            capture_output=True, text=True, timeout=60
+        )
+        if r.returncode != 0:
+            logger.error(f"Nadirclaw error: {r.stderr}")
+            return json.dumps({"tier": "complex", "error": "Classification failed, defaulting to complex."})
+        return r.stdout.strip()
+    except Exception as e:
+        return json.dumps({"tier": "complex", "error": str(e)})
+
+@mcp.tool()
 def validate_risk_control(control_id: str) -> str:
     """
     Executes a Risk Control Validation script securely via Trusted Remote Execution (Rex).
