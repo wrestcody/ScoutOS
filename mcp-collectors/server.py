@@ -130,6 +130,35 @@ def transcribe_audio(file_path: str) -> str:
         return f"Error during transcription: {e}"
 
 @mcp.tool()
+def validate_risk_control(control_id: str) -> str:
+    """
+    Executes a Risk Control Validation script securely via Trusted Remote Execution (Rex).
+
+    Args:
+        control_id: The ID of the control to validate (e.g., 'validate_mfa').
+    """
+    logger.info(f"Starting Risk Control Validation via Rex for {control_id}...")
+
+    try:
+        # Run the specific Rex script for this control
+        validation_data = run_rex_script(control_id)
+    except Exception as e:
+        return f"Error executing secure validation script: {e}"
+
+    evidence = {
+        "evidence_id": str(uuid.uuid4()),
+        "collector_name": f"risk_validator_{control_id}",
+        "collection_timestamp": datetime.now(timezone.utc).isoformat(),
+        "evidence_payload": validation_data,
+        "schema_version": "1.0.0"
+    }
+
+    # Cryptographically sign the validation attestation
+    signed_envelope = sign_evidence(evidence)
+
+    return f"Risk Control Validation complete for {control_id}:\n{json.dumps(signed_envelope)}"
+
+@mcp.tool()
 def collect_github_branch_protection(evidence_bucket: str, repository: str) -> str:
     """
     Collects GitHub branch protection rules securely via Trusted Remote Execution (Rex).

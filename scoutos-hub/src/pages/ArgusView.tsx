@@ -3,11 +3,13 @@ import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { useState, useRef } from 'react';
-import { Mic, Square, Loader2 } from 'lucide-react';
+import { Mic, Square, Loader2, CheckCircle2 } from 'lucide-react';
 
 function ArgusView() {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isValidated, setIsValidated] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
 
@@ -186,6 +188,54 @@ function ArgusView() {
                          <Button variant="outline" size="sm" className="h-8 text-xs uppercase border-white/10 text-muted-foreground hover:bg-white/5">
                             Suppress
                         </Button>
+                    </div>
+                </div>
+
+                {/* Example of a Mitigated Risk with Validation Button */}
+                <div className="p-5 bg-black/40 rounded border-l-4 border-l-emerald-600 border border-white/5 font-sans mb-4 relative shadow-lg shadow-emerald-900/10 opacity-70">
+                    <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-3">
+                            <span className="bg-emerald-600 text-white font-mono text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">Mitigated</span>
+                            <p className="font-semibold text-emerald-100 text-lg">Unauthenticated Admin Access</p>
+                        </div>
+                        <span className="text-[10px] font-mono text-muted-foreground">Asset: global-iam</span>
+                    </div>
+
+                    <div className="mb-4">
+                        <p className="text-muted-foreground text-sm leading-relaxed">
+                            <strong className="text-emerald-200 font-medium">Control:</strong> All administrative accounts are required to have Multi-Factor Authentication (MFA) enabled via the global IAM password policy.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        <span className="text-[10px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-1 rounded">NIST 800-53 IA-2</span>
+                    </div>
+
+                    <div className="mt-4 flex gap-2 items-center">
+                        {!isValidated ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isValidating}
+                                onClick={() => {
+                                    setIsValidating(true);
+                                    // Simulate the MCP call
+                                    setTimeout(() => {
+                                        setIsValidating(false);
+                                        setIsValidated(true);
+                                    }, 2000);
+                                }}
+                                className="h-8 text-xs uppercase border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 flex items-center gap-2"
+                            >
+                                {isValidating ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                                Validate Control
+                            </Button>
+                        ) : (
+                            <div className="flex items-center gap-2 text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 rounded-md text-xs font-mono font-semibold">
+                                <CheckCircle2 className="w-4 h-4" />
+                                <span>VALIDATED (99.99%)</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </ScrollArea>
