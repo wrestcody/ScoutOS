@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "SCR": {
+      "title": "FedRAMP 20x Change Request",
+      "description": "FedRAMP Adaptive, Transformative, or Routine Change document",
+      "type": "object",
+      "properties": {
+        "fedrampId": { "type": "string", "description": "Service Offering FedRAMP ID" },
+        "scnReference": { "type": "string", "description": "SCR Reference (e.g. FRSC-3232)" },
+        "datePrepared": { "type": "string", "description": "Preparation date" },
+        "preparedBy": { "type": "string", "description": "Name of preparer" },
+        "jiraLinks": { "type": "string", "description": "Markdown links to Jira tickets" },
+        "shortDescription": { "type": "string", "description": "Short description of change" },
+        "reasonForChange": { "type": "string", "description": "Reason for change" },
+        "changeType": { "type": "string", "enum": ["Adaptive", "Transformative", "Routine"], "description": "FedRAMP 20x Change Type" },
+        "categorizationExplanation": { "type": "string", "description": "Explanation of categorization" },
+        "netRiskPosture": { "type": "string", "description": "Summary of net risk posture" },
+        "hardDeadline": { "type": "string", "description": "Project hard deadline" },
+        "assessmentApproach": { "type": "string", "description": "Approach for assessment" },
+        "serviceTable": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "function": { "type": "string" },
+              "compute": { "type": "string" },
+              "dataHandling": { "type": "string" }
+            }
+          }
+        },
+        "customerImpactItems": {
+          "type": "array",
+          "items": { "type": "object", "properties": { "area": { "type": "string" }, "impact": { "type": "string" } } }
+        },
+        "systemComponentsImpacted": {
+          "type": "array",
+          "items": { "type": "object", "properties": { "name": { "type": "string" }, "impactType": { "type": "string" }, "description": { "type": "string" } } }
+        },
+        "riskAssessments": {
+          "type": "array",
+          "items": { "type": "object", "properties": { "area": { "type": "string" }, "assessment": { "type": "string" }, "mitigation": { "type": "string" } } }
+        },
+        "activities": {
+          "type": "array",
+          "items": { "type": "object", "properties": { "phase": { "type": "string" }, "activity": { "type": "string" }, "targetDate": { "type": "string" } } }
+        },
+        "cspApproverName": { "type": "string", "description": "Name of CSP approver" },
+        "cspApproverTitle": { "type": "string", "description": "Title of CSP approver" },
+        "status": { "type": "string", "enum": ["Draft", "Pending Assessment", "Pending Approval", "Approved", "Rejected"], "description": "Current status of the SCR" },
+        "creatorId": { "type": "string", "description": "UID of the user who created it" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fedrampId", "changeType", "shortDescription", "reasonForChange", "cspApproverName", "cspApproverTitle", "status"]
+    },
+    "AuditLog": {
+      "title": "Audit Log",
+      "description": "Track system events, routine changes, and SCR modifications",
+      "type": "object",
+      "properties": {
+        "scrId": { "type": "string", "description": "Optional reference to an SCR" },
+        "category": { "type": "string", "enum": ["SCR_EDIT", "ROUTINE_PATCH", "SYSTEM_EVENT", "OSCAL_VALIDATION"], "description": "Type of event" },
+        "userId": { "type": "string", "description": "UID of the user performing the action" },
+        "userEmail": { "type": "string", "description": "Email of the user" },
+        "action": { "type": "string", "description": "Action performed" },
+        "details": { "type": "string", "description": "Additional context" },
+        "severity": { "type": "string", "enum": ["INFO", "WARNING", "CRITICAL"], "description": "Impact level" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["category", "userId", "action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "scrs": {
+      "schema": "SCR",
+      "description": "Collection of Significant Change Requests"
+    },
+    "audit_logs": {
+      "schema": "AuditLog",
+      "description": "System-wide audit trail for continuous monitoring"
+    },
+    "scrs/{scrId}/logs": {
+      "schema": "AuditLog",
+      "description": "Audit trails specifically for a single SCR"
+    }
+  }
+}
