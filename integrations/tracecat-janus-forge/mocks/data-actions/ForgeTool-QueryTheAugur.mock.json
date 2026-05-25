@@ -1,0 +1,18 @@
+{
+  "requestUrlTemplate": "https://example.invalid/mock",
+  "requestType": "POST",
+  "timeoutMilliseconds": 12000,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "requestTemplate": "{\"natural_language_query\": ${input.natural_language_query}}",
+  "response": {
+    "translationMap": {
+      "results": "$['log_results']"
+    },
+    "translationMapDefaults": {
+      "results": ""
+    },
+    "successTemplate": "{\"log_results\": [{\"user\":\"alice@example.com\",\"action\":\"role change\",\"changedBy\":\"secops@example.com\",\"timestamp\":\"2025-09-01T10:32:00Z\"},{\"user\":\"service-account-ci\",\"action\":\"permission escalation\",\"changedBy\":\"jenkins@ci.local\",\"timestamp\":\"2025-09-02T08:11:45Z\"}]}"
+  }
+}

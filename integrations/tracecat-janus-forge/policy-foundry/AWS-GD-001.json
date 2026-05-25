@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-GD-001",
+  "description": "GuardDuty must be enabled in all regions with centralized findings export.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "guardduty",
+  "rule": {
+    "logic": "GuardDuty detectors enabled across regions",
+    "operator": "equals",
+    "field": "guardduty.enabledAllRegions",
+    "expectedValue": true
+  },
+  "severity": "high"
+}
+

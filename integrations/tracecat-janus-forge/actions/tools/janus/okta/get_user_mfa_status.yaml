@@ -1,0 +1,25 @@
+template: tools.janus.okta.get_user_mfa_status
+description: Return whether an Okta user has at least one active MFA factor.
+inputs:
+  user_id:
+    type: string
+    required: true
+steps:
+  - id: list_factors
+    uses: core.http_request
+    with:
+      method: GET
+      url: https://${{ SECRETS.okta.OKTA_DOMAIN }}/api/v1/users/${{ inputs.user_id }}/factors
+      headers:
+        Authorization: SSWS ${{ SECRETS.okta.OKTA_API_TOKEN }}
+        Accept: application/json
+  - id: summarize
+    uses: core.transform.jq
+    with:
+      input: ${{ steps.list_factors.output.body }}
+      filter: >-
+        { mfa_enabled: (map(select(.status == "ACTIVE")) | length > 0), factors: . }
+output:
+  mfa_enabled: ${{ steps.summarize.output.json.mfa_enabled }}
+  factors: ${{ steps.summarize.output.json.factors }}
+

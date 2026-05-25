@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-IAM-001",
+  "description": "Ensure root account has MFA enabled.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "iam",
+  "rule": {
+    "logic": "Root account MFA must be enabled",
+    "operator": "equals",
+    "field": "account.root.mfaEnabled",
+    "expectedValue": true
+  },
+  "severity": "critical"
+}
+

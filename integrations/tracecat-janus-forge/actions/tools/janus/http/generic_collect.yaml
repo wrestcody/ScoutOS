@@ -1,0 +1,32 @@
+template: tools.janus.http.generic_collect
+description: Generic HTTP evidence collector with configurable method, headers, and body.
+inputs:
+  method:
+    type: string
+    required: true
+  url:
+    type: string
+    required: true
+  headers:
+    type: object
+    required: false
+  json:
+    type: object
+    required: false
+  body:
+    type: string
+    required: false
+steps:
+  - id: request
+    uses: core.http_request
+    with:
+      method: ${{ inputs.method }}
+      url: ${{ inputs.url }}
+      headers: ${{ inputs.headers }}
+      json: ${{ inputs.json }}
+      body: ${{ inputs.body }}
+output:
+  status: ${{ steps.request.output.status }}
+  headers: ${{ steps.request.output.headers }}
+  body: ${{ steps.request.output.body }}
+

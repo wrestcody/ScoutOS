@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ingot-IntegrationBaselines",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "integration": { "type": "string" },
+    "baselineHash": { "type": "string" },
+    "baselineSnapshotId": { "type": "string" },
+    "baselineConfig": { "type": "object" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "required": ["integration", "baselineHash", "baselineSnapshotId", "baselineConfig", "updatedAt"]
+}
+

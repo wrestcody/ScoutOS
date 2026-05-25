@@ -1,0 +1,122 @@
+name: Blueprint-Okta-SSO-Audit
+description: "The Sentinel examines Okta’s gates for SSO best practices."
+trigger:
+  type: schedule
+  cron: "0 3 * * *"
+
+inputs:
+  - name: genesysConversationId
+    type: string
+    required: false
+  - name: genesysMemberUserIds
+    type: array
+    required: false
+    default: []
+
+secrets:
+  - name: OKTA_ORG_URL
+  - name: OKTA_API_TOKEN
+  - name: HYPERPROOF_CLIENT_ID
+  - name: HYPERPROOF_CLIENT_SECRET
+  - name: GENESYS_LOGIN_BASE
+  - name: GENESYS_API_BASE
+  - name: GENESYS_CLIENT_ID
+  - name: GENESYS_CLIENT_SECRET
+
+tasks:
+  - id: run_audit
+    name: Run Okta SSO audit
+    action: tools.janus.okta.sso_audit.sso_audit
+
+  - id: record_findings
+    name: Record findings to ingot
+    loop: "{{ tasks.run_audit.result.findings }}"
+    action: core.tables.upsert_row
+    with:
+      table: Ingot-OktaAuditFindings
+      key: "{{ loop.item.findingId }}"
+      row: "{{ loop.item }}"
+
+  - id: load_exceptions
+    name: Load active exceptions
+    action: core.tables.get_rows
+    with:
+      table: Ingot-Exceptions
+
+  - id: suppress_exceptions
+    name: Suppress findings with valid exceptions
+    action: core.transform.python
+    with:
+      code: |
+        from datetime import datetime, timezone
+        exceptions = {{ tasks.load_exceptions.result | tojson }} or []
+        findings = {{ tasks.run_audit.result.findings | tojson }}
+        def covered(exc, f):
+            pid = exc.get('policyId') == f.get('policyId')
+            res = exc.get('resource', '*')
+            res_ok = (res == '*') or (res == f.get('resource'))
+            now = datetime.now(timezone.utc)
+            try:
+                exp = datetime.fromisoformat(exc.get('expiresAt').replace('Z','+00:00'))
+            except Exception:
+                exp = now
+            active = exc.get('status') == 'active' and now < exp
+            return pid and res_ok and active
+        filtered = []
+        for f in findings:
+            if any(covered(e, f) for e in exceptions):
+                f['status'] = 'suppressed'
+            else:
+                filtered.append(f)
+        return {"findings": filtered}
+
+  - id: create_cases
+    name: Create Hearth cases for high/critical
+    loop: "{{ tasks.suppress_exceptions.result.findings }}"
+    condition: "{{ loop.item.severity in ['high','critical'] }}"
+    action: core.cases.create
+    with:
+      title: "Okta Audit: {{ loop.item.category }}"
+      description: "{{ loop.item.description }}"
+      severity: "{{ loop.item.severity }}"
+
+  - id: notify_genesys
+    name: Notify Genesys for high/critical findings
+    loop: "{{ tasks.suppress_exceptions.result.findings }}"
+    condition: "{{ loop.item.severity in ['high','critical'] }}"
+    action: tools.janus.genesys.send_message.send_message
+    with:
+      conversationId: "{{ inputs.genesysConversationId | default(null) }}"
+      memberUserIds: "{{ inputs.genesysMemberUserIds }}"
+      text: >
+        [Okta Audit] {{ loop.item.severity | upper }} - {{ loop.item.category }}: {{ loop.item.description }}
+        Policy: {{ loop.item.policyId }} Resource: {{ loop.item.resource }}
+
+  - id: upload_evidence
+    name: Upload audit evidence to Hyperproof
+    loop: "{{ tasks.suppress_exceptions.result.findings }}"
+    action: tools.janus.hyperproof.upload_evidence
+    with:
+      controlId: "HP-OKTA-SSO"
+      evidenceTitle: "Okta SSO Finding: {{ loop.item.category }}"
+      evidenceDescription: "{{ loop.item.description }}"
+      evidenceData: "{{ loop.item }}"
+      collectionTimestamp: "{{ now() }}"
+
+  - id: upsert_evidence_hash
+    name: Record evidence hash for each finding
+    loop: "{{ tasks.upload_evidence.results }}"
+    condition: "{{ loop.item.result.status == 'success' }}"
+    action: core.tables.upsert_row
+    with:
+      table: Ingot-EvidenceHashes
+      key: "{{ loop.item.result.payloadHash }}"
+      row:
+        hashId: "{{ loop.item.result.payloadHash }}"
+        policyId: "{{ tasks.suppress_exceptions.result.findings[loop.index].policyId }}"
+        resource: "{{ tasks.suppress_exceptions.result.findings[loop.index].resource }}"
+        proofId: "{{ loop.item.result.proofId }}"
+        attachmentId: "{{ loop.item.result.attachmentId }}"
+        algorithm: "{{ loop.item.result.hashAlgorithm }}"
+        collectedAt: "{{ now() }}"
+

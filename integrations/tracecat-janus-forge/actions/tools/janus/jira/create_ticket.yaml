@@ -1,0 +1,48 @@
+template: tools.janus.jira.create_ticket
+description: Create a Jira issue with standard fields.
+inputs:
+  project_key:
+    type: string
+    required: true
+  summary:
+    type: string
+    required: true
+  description:
+    type: string
+    required: true
+  issuetype:
+    type: string
+    required: false
+    default: Task
+  assignee:
+    type: string
+    required: false
+  labels:
+    type: array
+    required: false
+  fields:
+    type: object
+    required: false
+steps:
+  - id: create
+    uses: core.http_request
+    with:
+      method: POST
+      url: ${{ SECRETS.jira.BASE_URL }}/rest/api/3/issue
+      headers:
+        Authorization: Basic ${{ SECRETS.jira.BASIC_AUTH_B64 }}
+        Accept: application/json
+        Content-Type: application/json
+      json:
+        fields:
+          project: { key: ${{ inputs.project_key }} }
+          summary: ${{ inputs.summary }}
+          description: ${{ inputs.description }}
+          issuetype: { name: ${{ inputs.issuetype }} }
+          assignee: ${{ inputs.assignee and {"name": inputs.assignee} or null }}
+          labels: ${{ inputs.labels }}
+          ${{ inputs.fields and inputs.fields or {} }}
+output:
+  issue_key: ${{ steps.create.output.json.key }}
+  url: ${{ SECRETS.jira.BASE_URL }}/browse/${{ steps.create.output.json.key }}
+

@@ -1,0 +1,1 @@
+# Uses built-in AWS Lambda boto3/botocore. No external dependencies required.

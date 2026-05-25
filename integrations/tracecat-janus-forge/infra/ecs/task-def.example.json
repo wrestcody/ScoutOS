@@ -1,0 +1,33 @@
+{
+  "family": "janus-forge-tracecat-tools",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::123456789012:role/janus-forge-tracecat-role",
+  "containerDefinitions": [
+    {
+      "name": "janus-forge-integrations",
+      "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/janus-forge-integrations:latest",
+      "essential": true,
+      "environment": [
+        { "name": "AWS_REGION", "value": "us-east-1" },
+        { "name": "SUMO_BASE_URL", "value": "https://api.us2.sumologic.com" }
+      ],
+      "secrets": [
+        { "name": "SUMO_ACCESS_ID", "valueFrom": "arn:aws:ssm:us-east-1:123456789012:parameter/janus/sumo/access_id" },
+        { "name": "SUMO_ACCESS_KEY", "valueFrom": "arn:aws:ssm:us-east-1:123456789012:parameter/janus/sumo/access_key" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/janus-forge-integrations",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
+

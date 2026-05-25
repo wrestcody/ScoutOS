@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Janus Forge Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "policyId": {
+      "type": "string",
+      "pattern": "^[A-Z0-9\\-]+$",
+      "description": "Unique identifier, e.g., AWS-S3-001"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "frameworks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "targetPlatform": {
+      "type": "string",
+      "enum": ["aws", "gcp", "azure", "okta", "bitbucket", "jenkins", "sumologic"]
+    },
+    "targetResource": {
+      "type": "string",
+      "description": "Resource or service, e.g., s3, iam, ec2"
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "logic": {
+          "type": "string",
+          "description": "Human-readable logic summary"
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["equals", "not_equals", "in", "not_in", "gte", "lte", "exists"]
+        },
+        "field": {
+          "type": "string",
+          "description": "Name of the configuration field to check"
+        },
+        "expectedValue": {
+          "description": "Expected value for compliance, type varies by field",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" },
+            { "type": "array", "items": { "type": ["string", "number", "boolean"] } }
+          ]
+        }
+      },
+      "required": ["field", "operator", "expectedValue"]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "controlMappings": {
+      "type": "array",
+      "description": "Downstream control IDs in Hyperproof or framework control IDs",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "framework": { "type": "string" },
+          "controlId": { "type": "string" },
+          "hyperproofControlId": { "type": "string" }
+        },
+        "required": ["framework"]
+      }
+    }
+  },
+  "required": ["policyId", "description", "frameworks", "targetPlatform", "targetResource", "rule", "severity"]
+}
+

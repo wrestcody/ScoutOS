@@ -1,0 +1,14 @@
+{
+  "requestUrlTemplate": "https://example.invalid/mock",
+  "requestType": "POST",
+  "timeoutMilliseconds": 8000,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "requestTemplate": "{\"evidence_payload\": ${input.evidence_payload}}",
+  "response": {
+    "translationMap": {},
+    "translationMapDefaults": {},
+    "successTemplate": "{\"status\": \"SUCCESS\", \"file_path\": \"/sharepoint/audits/evidence.csv\"}"
+  }
+}

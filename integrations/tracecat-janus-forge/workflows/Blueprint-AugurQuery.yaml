@@ -1,0 +1,21 @@
+version: 1
+name: Blueprint-AugurQuery
+trigger:
+  type: webhook
+  inputs:
+    - name: natural_language_request
+      type: string
+      required: true
+steps:
+  - id: ai_generate_query
+    uses: core.ai.task
+    with:
+      prompt: >-
+        You are an expert in Sumo Logic Search Query Language. Based on the user request, generate the exact query needed. User Request: ${{ TRIGGER.natural_language_request }}
+  - id: run_sumo
+    uses: tools.janus.sumologic.create_and_poll_search_job
+    with:
+      query: ${{ steps.ai_generate_query.output.text }}
+output:
+  results: ${{ steps.run_sumo.output.records }}
+

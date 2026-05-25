@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ingot-PolicyDocs",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "policyId": { "type": "string" },
+    "confluencePageId": { "type": "string" },
+    "spaceKey": { "type": ["string", "null"] },
+    "lastLinkedAt": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "required": ["policyId", "confluencePageId"]
+}
+

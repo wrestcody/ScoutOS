@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ingot-OktaAuditFindings",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "findingId": { "type": "string" },
+    "policyId": { "type": "string", "description": "Logical policy key for exception matching" },
+    "resource": { "type": "string", "description": "Target entity, e.g., appId/userId/org" },
+    "category": { "type": "string" },
+    "description": { "type": "string" },
+    "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+    "evidence": { "type": "object" },
+    "detectedAt": { "type": "string", "format": "date-time" },
+    "status": { "type": "string", "enum": ["open", "suppressed", "resolved"] }
+  },
+  "required": ["findingId", "policyId", "resource", "category", "description", "severity", "detectedAt", "status"]
+}
+

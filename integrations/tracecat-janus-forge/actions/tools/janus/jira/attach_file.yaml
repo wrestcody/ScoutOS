@@ -1,0 +1,56 @@
+template: tools.janus.jira.attach_file
+description: Attach a file to a Jira issue.
+inputs:
+  issue_key:
+    type: string
+    required: true
+  file_url:
+    type: string
+    required: false
+  file_name:
+    type: string
+    required: false
+  content_base64:
+    type: string
+    required: false
+steps:
+  - id: choose
+    uses: core.control.if
+    with:
+      condition: ${{ inputs.content_base64 != null }}
+      then:
+        - id: attach_inline
+          uses: core.http_request
+          with:
+            method: POST
+            url: ${{ SECRETS.jira.BASE_URL }}/rest/api/3/issue/${{ inputs.issue_key }}/attachments
+            headers:
+              Authorization: Basic ${{ SECRETS.jira.BASIC_AUTH_B64 }}
+              X-Atlassian-Token: no-check
+              Content-Type: multipart/form-data
+            files:
+              file:
+                filename: ${{ inputs.file_name or 'evidence.txt' }}
+                content_base64: ${{ inputs.content_base64 }}
+      else:
+        - id: fetch_file
+          uses: core.http_request
+          with:
+            method: GET
+            url: ${{ inputs.file_url }}
+        - id: attach_fetched
+          uses: core.http_request
+          with:
+            method: POST
+            url: ${{ SECRETS.jira.BASE_URL }}/rest/api/3/issue/${{ inputs.issue_key }}/attachments
+            headers:
+              Authorization: Basic ${{ SECRETS.jira.BASIC_AUTH_B64 }}
+              X-Atlassian-Token: no-check
+              Content-Type: multipart/form-data
+            files:
+              file:
+                filename: ${{ inputs.file_name or 'evidence.bin' }}
+                content_base64: ${{ steps.fetch_file.output.body_base64 }}
+output:
+  attachment_id: ${{ (steps.attach_inline.output.json[0].id if steps.attach_inline else steps.attach_fetched.output.json[0].id) }}
+

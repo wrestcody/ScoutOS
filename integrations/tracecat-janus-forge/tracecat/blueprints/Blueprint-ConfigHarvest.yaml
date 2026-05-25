@@ -1,0 +1,159 @@
+name: Blueprint-ConfigHarvest
+description: "The Forge catalogs the configuration of allied tools each dawn."
+trigger:
+  type: schedule
+  cron: "15 4 * * *"
+
+inputs:
+  - name: genesysConversationId
+    type: string
+    required: false
+
+secrets:
+  - name: SNYK_TOKEN
+  - name: CODACY_API_TOKEN
+  - name: BITBUCKET_USERNAME
+  - name: BITBUCKET_APP_PASSWORD
+  - name: JIRA_BASE_URL
+  - name: JIRA_EMAIL
+  - name: JIRA_API_TOKEN
+  - name: FALCON_CLIENT_ID
+  - name: FALCON_CLIENT_SECRET
+  - name: FALCON_BASE_URL
+  - name: TIO_ACCESS_KEY
+  - name: TIO_SECRET_KEY
+  - name: HYPERPROOF_CLIENT_ID
+  - name: HYPERPROOF_CLIENT_SECRET
+  - name: GENESYS_LOGIN_BASE
+  - name: GENESYS_API_BASE
+  - name: GENESYS_CLIENT_ID
+  - name: GENESYS_CLIENT_SECRET
+
+tasks:
+  - id: fetch_snyk
+    name: Fetch Snyk config
+    action: tools.janus.snyk.get_config.get_config
+
+  - id: fetch_codacy
+    name: Fetch Codacy config
+    action: tools.janus.codacy.get_config.get_config
+
+  - id: fetch_bitbucket
+    name: Fetch Bitbucket config
+    action: tools.janus.bitbucket.get_config.get_config
+
+  - id: fetch_jira
+    name: Fetch Jira config
+    action: tools.janus.jira.get_config.get_config
+
+  - id: fetch_crowdstrike
+    name: Fetch CrowdStrike config
+    action: tools.janus.crowdstrike.get_config.get_config
+
+  - id: fetch_tenable
+    name: Fetch Tenable config
+    action: tools.janus.tenable.get_config.get_config
+
+  - id: hash_and_store
+    name: Hash and store snapshots
+    action: core.transform.python
+    with:
+      code: |
+        import hashlib, json, time
+        def h(v):
+            b = json.dumps(v, separators=(",", ":"), sort_keys=True).encode("utf-8")
+            return hashlib.sha256(b).hexdigest()
+        collected = int(time.time())
+        ts = {{ now() | tojson }}
+        items = []
+        sources = {
+          "snyk": {{ tasks.fetch_snyk.result | tojson }},
+          "codacy": {{ tasks.fetch_codacy.result | tojson }},
+          "bitbucket": {{ tasks.fetch_bitbucket.result | tojson }},
+          "jira": {{ tasks.fetch_jira.result | tojson }},
+          "crowdstrike": {{ tasks.fetch_crowdstrike.result | tojson }},
+          "tenable": {{ tasks.fetch_tenable.result | tojson }},
+        }
+        for name, res in sources.items():
+          if res.get("status") == "success":
+            cfg = res.get("config")
+            items.append({"integration": name, "config": cfg, "hash": h(cfg), "collectedAt": ts, "snapshotId": f"{name}-{collected}"})
+        return {"items": items}
+
+  - id: upsert_configs
+    name: Upsert snapshots into ingot
+    loop: "{{ tasks.hash_and_store.result.items }}"
+    action: core.tables.upsert_row
+    with:
+      table: Ingot-IntegrationConfigs
+      key: "{{ loop.item.snapshotId }}"
+      row: "{{ loop.item }}"
+
+  - id: detect_drift
+    name: Detect drift per integration
+    loop: "{{ tasks.hash_and_store.result.items }}"
+    action: core.transform.python
+    with:
+      code: |
+        current = {{ loop.item | tojson }}
+        # Fetch baseline from ingot through context passed-in (not available in transform). Placeholder compares hashes via previous step if provided.
+        # Here we simply output needed fields; a follow-up step will join with baselines.
+        return {"integration": current["integration"], "currentHash": current["hash"], "snapshotId": current["snapshotId"]}
+
+  - id: get_baselines
+    name: Get integration baselines
+    action: core.tables.get_rows
+    with:
+      table: Ingot-IntegrationBaselines
+
+  - id: compare_with_baseline
+    name: Compare current hashes to baselines
+    loop: "{{ tasks.detect_drift.results }}"
+    action: core.transform.python
+    with:
+      code: |
+        curr = {{ loop.item.result | tojson }}
+        baselines = {{ tasks.get_baselines.result | tojson }} or []
+        base = next((b for b in baselines if b.get('integration') == curr.get('integration')), None)
+        drift = base is not None and curr.get('currentHash') != base.get('baselineHash')
+        return {
+          "integration": curr.get('integration'),
+          "drift": drift,
+          "currentHash": curr.get('currentHash'),
+          "baselineHash": base.get('baselineHash') if base else None,
+          "snapshotId": curr.get('snapshotId')
+        }
+
+  - id: notify_genesys_drift
+    name: Notify Genesys on drift (placeholder)
+    loop: "{{ tasks.compare_with_baseline.results }}"
+    condition: "{{ loop.item.result.drift == true }}"
+    action: tools.janus.genesys.send_message.send_message
+    with:
+      conversationId: "{{ inputs.genesysConversationId | default(null) }}"
+      text: >
+        [ConfigHarvest] Drift detected on {{ loop.item.result.integration }}. Baseline {{ loop.item.result.baselineHash }} -> Current {{ loop.item.result.currentHash }}.
+
+  - id: create_jira_drift
+    name: Create Jira tickets on drift
+    loop: "{{ tasks.compare_with_baseline.results }}"
+    condition: "{{ loop.item.result.drift == true }}"
+    action: tools.janus.jira.create_issue.create_issue
+    with:
+      projectKey: SEC
+      summary: "Config drift: {{ loop.item.result.integration }}"
+      description: >
+        Config drift detected for {{ loop.item.result.integration }}.
+        Baseline: {{ loop.item.result.baselineHash }}
+        Current: {{ loop.item.result.currentHash }}
+
+  - id: upload_evidence
+    name: Upload snapshots evidence to Hyperproof
+    action: tools.janus.hyperproof.upload_evidence
+    with:
+      controlId: "HP-CONFIG-SNAPSHOT"
+      evidenceTitle: "Daily Integration Config Snapshots"
+      evidenceDescription: "Collected snapshots for integrations: Snyk, Codacy, Bitbucket, Jira, CrowdStrike, Tenable"
+      evidenceData: "{{ tasks.hash_and_store.result.items }}"
+      collectionTimestamp: "{{ now() }}"
+

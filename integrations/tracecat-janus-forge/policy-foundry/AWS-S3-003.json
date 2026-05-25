@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-S3-003",
+  "description": "Enable S3 bucket versioning for data protection and recovery.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "s3",
+  "rule": {
+    "logic": "Bucket Versioning must be enabled",
+    "operator": "equals",
+    "field": "bucket.versioning.status",
+    "expectedValue": "Enabled"
+  },
+  "severity": "high"
+}
+

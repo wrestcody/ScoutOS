@@ -1,0 +1,15 @@
+{
+  "_comment": "Example flow export (simplified). Replace with real export from Architect.",
+  "name": "Privileged Roster",
+  "type": "workflow",
+  "variables": [
+    { "name": "correlationId", "type": "string" }
+  ],
+  "steps": [
+    { "type": "dataAction", "name": "Get Okta Admins", "action": "okta_admins_get", "input": { "correlationId": "$(Flow.correlationId)", "params": {"oktaOrg": "acme.okta.com"} }, "outputVar": "oktaAdmins" },
+    { "type": "dataAction", "name": "Get AWS IAM Admins", "action": "aws_iam_admins_get", "input": { "correlationId": "$(Flow.correlationId)", "params": {"groupName": "Administrators"} }, "outputVar": "awsAdmins" },
+    { "type": "compose", "name": "Build Rows", "expr": "Set(Flow.rows, Concat($(oktaAdmins.items), $(awsAdmins.items)))" },
+    { "type": "dataAction", "name": "Upload CSV", "action": "format_and_upload_evidence", "input": { "correlationId": "$(Flow.correlationId)", "params": { "rows": "$(Flow.rows)", "filename": "privileged-roster.csv" } }, "outputVar": "uploadResult" },
+    { "type": "end" }
+  ]
+}

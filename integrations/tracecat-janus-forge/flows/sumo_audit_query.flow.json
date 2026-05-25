@@ -1,0 +1,13 @@
+{
+  "_comment": "Example Sumo Audit Query flow (simplified). Replace with real Architect export.",
+  "name": "Sumo Audit Query",
+  "type": "workflow",
+  "variables": [
+    { "name": "correlationId", "type": "string" },
+    { "name": "naturalLanguageRequest", "type": "string" }
+  ],
+  "steps": [
+    { "type": "dataAction", "name": "Get Sumo Evidence", "action": "sumo_evidence_get", "input": { "correlationId": "$(Flow.correlationId)", "params": { "naturalLanguageRequest": "$(Flow.naturalLanguageRequest)", "lookbackDays": 30 } }, "outputVar": "sumoResult" },
+    { "type": "end" }
+  ]
+}

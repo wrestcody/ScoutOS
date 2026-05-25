@@ -1,0 +1,15 @@
+{
+  "_comment": "The Hearth: Audit Request Script stub. Import into Genesys Cloud Scripts.",
+  "name": "The Hearth - Audit Request",
+  "description": "Input audit request, run Blueprint-AugurQuery, and display results.",
+  "pages": [
+    {
+      "name": "AuditQuery",
+      "components": [
+        { "type": "text", "label": "Audit Request", "name": "audit_request", "defaultValue": "Show user role changes in the last 30 days" },
+        { "type": "button", "label": "Generate Evidence", "name": "btn_generate", "onClick": { "action": "startFlow", "flowName": "Blueprint-AugurQuery", "inputs": { "naturalLanguageRequest": "${audit_request}" } } },
+        { "type": "table", "label": "Results", "name": "results_table", "dataBinding": "${Flow.augurResult.results}" }
+      ]
+    }
+  ]
+}

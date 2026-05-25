@@ -1,0 +1,56 @@
+name: Blueprint-Remediation-Request-S3-Encryption
+description: "Ask the Hearth’s stewards to approve S3 encryption remediation via Genesys."
+trigger:
+  type: manual
+
+inputs:
+  - name: bucket
+    type: string
+    required: true
+  - name: algorithm
+    type: string
+    default: AES256
+  - name: kmsKeyId
+    type: string
+    required: false
+  - name: genesysConversationId
+    type: string
+    required: false
+  - name: genesysMemberUserIds
+    type: array
+    required: false
+    default: []
+
+secrets:
+  - name: GENESYS_LOGIN_BASE
+  - name: GENESYS_API_BASE
+  - name: GENESYS_CLIENT_ID
+  - name: GENESYS_CLIENT_SECRET
+
+tasks:
+  - id: create_request
+    name: Record approval request
+    action: core.tables.upsert_row
+    with:
+      table: Ingot-Approvals
+      key: "{{ context.runId }}"
+      row:
+        approvalId: "{{ context.runId }}"
+        type: "S3-Encryption-Remediation"
+        status: "pending"
+        requestedAt: "{{ now() }}"
+        context:
+          bucket: "{{ inputs.bucket }}"
+          algorithm: "{{ inputs.algorithm }}"
+          kmsKeyId: "{{ inputs.kmsKeyId | default(null) }}"
+
+  - id: send_genesys
+    name: Send approval request to Genesys
+    action: tools.janus.genesys.send_message.send_message
+    with:
+      conversationId: "{{ inputs.genesysConversationId | default(null) }}"
+      memberUserIds: "{{ inputs.genesysMemberUserIds }}"
+      text: >
+        [Approval Needed] Enable default encryption on S3 bucket {{ inputs.bucket }} ({{ inputs.algorithm }}).
+        Approve: POST webhook with {{ context.runId }} and action=approve. Deny: action=deny.
+

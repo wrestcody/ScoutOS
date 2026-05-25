@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-S3-010",
+  "description": "Require lifecycle policy for noncurrent version expiration or transition.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "s3",
+  "rule": {
+    "logic": "Lifecycle configured for noncurrent versions",
+    "operator": "exists",
+    "field": "bucket.lifecycle.noncurrentVersionRules",
+    "expectedValue": true
+  },
+  "severity": "low"
+}
+

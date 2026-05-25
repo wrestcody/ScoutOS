@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-CFG-001",
+  "description": "AWS Config must be enabled with appropriate recorder and delivery channel.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "config",
+  "rule": {
+    "logic": "Config recorder + delivery channel present",
+    "operator": "equals",
+    "field": "config.enabled",
+    "expectedValue": true
+  },
+  "severity": "high"
+}
+

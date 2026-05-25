@@ -1,0 +1,6 @@
+{
+  "_comment": "Placeholder for Analytics-Driven Trigger target flow. Replace with real Architect export.",
+  "name": "Compliance Review",
+  "type": "workflow",
+  "notes": "Receives analytics event, creates task, attaches conversationId, routes to Compliance Review queue."
+}

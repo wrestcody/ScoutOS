@@ -1,0 +1,26 @@
+template: tools.janus.jira.get_ticket_status
+description: Get Jira issue status and key fields.
+inputs:
+  issue_key:
+    type: string
+    required: true
+steps:
+  - id: get
+    uses: core.http_request
+    with:
+      method: GET
+      url: ${{ SECRETS.jira.BASE_URL }}/rest/api/3/issue/${{ inputs.issue_key }}
+      headers:
+        Authorization: Basic ${{ SECRETS.jira.BASIC_AUTH_B64 }}
+        Accept: application/json
+  - id: map
+    uses: core.transform.jq
+    with:
+      input: ${{ steps.get.output.body }}
+      filter: >-
+        { status: .fields.status.name, assignee: (.fields.assignee.name // null), summary: .fields.summary }
+output:
+  status: ${{ steps.map.output.json.status }}
+  assignee: ${{ steps.map.output.json.assignee }}
+  summary: ${{ steps.map.output.json.summary }}
+
