@@ -1,0 +1,34 @@
+template: tools.janus.snyk.get_pr_scan_results
+description: Retrieve Snyk scan results for a PR commit/ref.
+inputs:
+  org_id:
+    type: string
+    required: true
+  project_id:
+    type: string
+    required: true
+  ref:
+    type: string
+    required: true
+steps:
+  - id: list
+    uses: core.http_request
+    with:
+      method: GET
+      url: https://api.snyk.io/rest/orgs/${{ inputs.org_id }}/projects/${{ inputs.project_id }}/issues?version=2024-08-13&ref=${{ inputs.ref }}
+      headers:
+        Authorization: token ${{ SECRETS.snyk.API_TOKEN }}
+        Accept: application/json
+  - id: summarize
+    uses: core.transform.jq
+    with:
+      input: ${{ steps.list.output.body }}
+      filter: >-
+        { critical_count: ([.data[] | select(.attributes.severity=="critical")] | length),
+          high_count: ([.data[] | select(.attributes.severity=="high")] | length),
+          issues: .data }
+output:
+  critical_count: ${{ steps.summarize.output.json.critical_count }}
+  high_count: ${{ steps.summarize.output.json.high_count }}
+  issues: ${{ steps.summarize.output.json.issues }}
+

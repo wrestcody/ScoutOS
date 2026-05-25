@@ -1,0 +1,49 @@
+name: Blueprint-Genesys-Approval-Webhook
+description: "Heralds from Genesys carry the stewards’ decree to the Forge."
+trigger:
+  type: webhook
+  source: genesys
+
+tasks:
+  - id: parse
+    name: Parse webhook
+    action: core.transform.python
+    with:
+      code: |
+        body = {{ trigger.body | tojson }}
+        approval_id = body.get('approvalId')
+        action = body.get('action')
+        user = body.get('user')
+        return {"approvalId": approval_id, "action": action, "user": user}
+
+  - id: update_approval
+    name: Update approval status
+    action: core.tables.upsert_row
+    with:
+      table: Ingot-Approvals
+      key: "{{ tasks.parse.result.approvalId }}"
+      row:
+        approvalId: "{{ tasks.parse.result.approvalId }}"
+        status: "{{ 'approved' if tasks.parse.result.action == 'approve' else 'denied' }}"
+        decidedAt: "{{ now() }}"
+        approver: "{{ tasks.parse.result.user }}"
+
+  - id: fetch_context
+    name: Fetch approval context
+    action: core.tables.get_row
+    with:
+      table: Ingot-Approvals
+      key: "{{ tasks.parse.result.approvalId }}"
+
+  - id: run_remediation
+    name: Run remediation on approval
+    condition: "{{ tasks.parse.result.action == 'approve' }}"
+    action: start_blueprint
+    with:
+      name: Blueprint-Remediate-S3-Encryption
+      inputs:
+        approve: true
+        bucket: "{{ tasks.fetch_context.result.context.bucket }}"
+        algorithm: "{{ tasks.fetch_context.result.context.algorithm }}"
+        kmsKeyId: "{{ tasks.fetch_context.result.context.kmsKeyId }}"
+

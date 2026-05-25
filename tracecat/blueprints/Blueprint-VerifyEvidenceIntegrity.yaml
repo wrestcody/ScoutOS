@@ -1,0 +1,56 @@
+name: Blueprint-VerifyEvidenceIntegrity
+description: "The Forge’s auditor re-weighs proofs and verifies the maker’s mark."
+trigger:
+  type: schedule
+  cron: "0 6 * * *"
+
+tasks:
+  - id: list_hashes
+    name: Fetch recent evidence hashes
+    action: core.tables.query
+    with:
+      table: Ingot-EvidenceHashes
+      where: "collectedAt >= date_sub('day', 7, now())"
+
+  - id: download
+    name: Download attachments and recompute hash
+    loop: "{{ tasks.list_hashes.result.rows }}"
+    action: tools.janus.hyperproof.download_attachment.download_and_hash
+    with:
+      proofId: "{{ loop.item.proofId }}"
+      attachmentId: "{{ loop.item.attachmentId }}"
+
+  - id: compare
+    name: Compare stored vs recomputed hashes
+    loop: "{{ range(0, (tasks.download.results | length)) }}"
+    action: core.transform.python
+    with:
+      code: |
+        stored = {{ tasks.list_hashes.result.rows[loop.index] | tojson }}
+        recomputed = {{ tasks.download.results[loop.index].result | tojson }}
+        ok = (recomputed.get('payloadHash') == stored.get('hashId'))
+        return {"proofId": stored.get('proofId'), "ok": ok, "expected": stored.get('hashId'), "actual": recomputed.get('payloadHash')}
+
+  - id: verify_signature
+    name: Verify KMS signature when present
+    loop: "{{ tasks.list_hashes.result.rows }}"
+    condition: "{{ loop.item.signature is defined and loop.item.signerKeyId is defined }}"
+    action: tools.janus.kms.verify_signature.verify
+    with:
+      keyId: "{{ loop.item.signerKeyId }}"
+      messageHashHex: "{{ loop.item.hashId }}"
+      signatureBase64: "{{ loop.item.signature }}"
+      algorithm: "{{ loop.item.signatureAlgorithm | default('RSASSA_PSS_SHA_256') }}"
+
+  - id: report
+    name: Upsert verification summary
+    action: core.tables.upsert_row
+    with:
+      table: Ingot-EvidenceVerification
+      key: "{{ now() }}"
+      row:
+        checkedAt: "{{ now() }}"
+        total: "{{ tasks.download.results | length }}"
+        mismatches: "{{ tasks.compare.results | selectattr('result.ok','equalto', false) | list | length }}"
+        signatureInvalid: "{{ tasks.verify_signature.results | selectattr('result.signatureValid','equalto', false) | list | length }}"
+

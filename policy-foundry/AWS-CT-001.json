@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-CT-001",
+  "description": "Ensure CloudTrail is enabled in all regions and logs to a centralized, encrypted bucket.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "cloudtrail",
+  "rule": {
+    "logic": "Multi-region trail with SSE-KMS to central bucket",
+    "operator": "equals",
+    "field": "cloudtrail.multiRegion.enabled",
+    "expectedValue": true
+  },
+  "severity": "high"
+}
+

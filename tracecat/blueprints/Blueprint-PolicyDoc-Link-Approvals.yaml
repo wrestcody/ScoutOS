@@ -1,0 +1,83 @@
+name: Blueprint-PolicyDoc-Link-Approvals
+description: "When a policy changes, the Lore is amended with approval links."
+trigger:
+  type: webhook
+  source: bitbucket
+  events:
+    - push
+
+inputs:
+  - name: jiraProjectKey
+    type: string
+    default: SEC
+
+secrets:
+  - name: JIRA_BASE_URL
+  - name: JIRA_EMAIL
+  - name: JIRA_API_TOKEN
+  - name: CONFLUENCE_BASE_URL
+  - name: CONFLUENCE_EMAIL
+  - name: CONFLUENCE_API_TOKEN
+
+tasks:
+  - id: changed_files
+    name: Collect changed policy files
+    action: forges.bitbucket.get_commit_diff
+    with:
+      workspace: "{{ trigger.workspace }}"
+      repo_slug: "{{ trigger.repo_slug }}"
+      commit: "{{ trigger.commit_hash }}"
+    transform:
+      result: >
+        {{ result.files | selectattr('status','in',['added','modified']) | map(attribute='path') | select('match', r'.*\\.json$') | list }}
+
+  - id: load_docs
+    name: Load policy -> Confluence mapping
+    action: core.tables.get_rows
+    with:
+      table: Ingot-PolicyDocs
+
+  - id: link_approvals
+    name: For each changed policy, search Jira approvals and update Confluence
+    loop: "{{ tasks.changed_files.result }}"
+    action: core.composite
+    with:
+      steps:
+        - id: read_policy
+          action: forges.bitbucket.get_file_content
+          with:
+            workspace: "{{ trigger.workspace }}"
+            repo_slug: "{{ trigger.repo_slug }}"
+            path: "{{ loop.item }}"
+            ref: "main"
+        - id: parse_policy
+          action: core.transform.jq
+          with:
+            input: "{{ steps.read_policy.result.content }}"
+            query: ".policyId"
+        - id: lookup_page
+          action: core.transform.python
+          with:
+            code: |
+              pid = {{ steps.parse_policy.result | tojson }}
+              docs = {{ tasks.load_docs.result | tojson }} or []
+              page = next((d for d in docs if d.get('policyId') == pid), None)
+              return {"policyId": pid, "pageId": page.get('confluencePageId') if page else None}
+        - id: find_approvals
+          action: tools.janus.jira.search_issues.search_issues
+          with:
+            jql: "project={{ inputs.jiraProjectKey }} AND summary ~ '{{ steps.lookup_page.result.policyId }}' AND statusCategory = Done ORDER BY updated DESC"
+            maxResults: 5
+        - id: update_page
+          condition: "{{ steps.lookup_page.result.pageId is not none and steps.find_approvals.result.status == 'success' }}"
+          action: tools.janus.confluence.update_page.update_page
+          with:
+            pageId: "{{ steps.lookup_page.result.pageId }}"
+            appendHtml: >
+              <p><b>Latest Approval Tickets for {{ steps.lookup_page.result.policyId }}:</b></p>
+              <ul>
+              {% for issue in steps.find_approvals.result.result.issues %}
+              <li><a href="{{ issue.self | replace('/rest/api/3/issue','/browse') }}">{{ issue.key }}</a> - {{ issue.fields.summary }}</li>
+              {% endfor %}
+              </ul>
+

@@ -1,0 +1,54 @@
+template: tools.janus.tenable.get_scan_results
+description: Retrieve results for the latest Tenable scan by name.
+inputs:
+  scan_name:
+    type: string
+    required: true
+steps:
+  - id: list_scans
+    uses: core.http_request
+    with:
+      method: GET
+      url: https://cloud.tenable.com/scans
+      headers:
+        X-ApiKeys: accessKey=${{ SECRETS.tenable.ACCESS_KEY }}; secretKey=${{ SECRETS.tenable.SECRET_KEY }}
+        Accept: application/json
+  - id: pick
+    uses: core.transform.jq
+    with:
+      input: ${{ steps.list_scans.output.body }}
+      filter: >-
+        (.scans | map(select(.name == $name)) | sort_by(.last_modification_date) | last) // null
+      variables:
+        name: ${{ inputs.scan_name }}
+  - id: details
+    uses: core.control.if
+    with:
+      condition: ${{ steps.pick.output.json != null }}
+      then:
+        - id: get_details
+          uses: core.http_request
+          with:
+            method: GET
+            url: https://cloud.tenable.com/scans/${{ steps.pick.output.json.id }}
+            headers:
+              X-ApiKeys: accessKey=${{ SECRETS.tenable.ACCESS_KEY }}; secretKey=${{ SECRETS.tenable.SECRET_KEY }}
+              Accept: application/json
+        - id: summarize
+          uses: core.transform.jq
+          with:
+            input: ${{ steps.get_details.output.body }}
+            filter: >-
+              { summary: { critical: .vulnerabilities[]? | select(.severity=="critical") | .count // 0,
+                          high: .vulnerabilities[]? | select(.severity=="high") | .count // 0 },
+                findings: (.hosts // []),
+                report_url: null }
+      else:
+        - id: no_scan
+          uses: core.util.noop
+          with: {}
+output:
+  summary: ${{ steps.summarize.output.json.summary }}
+  findings: ${{ steps.summarize.output.json.findings }}
+  report_url: ${{ steps.summarize.output.json.report_url }}
+

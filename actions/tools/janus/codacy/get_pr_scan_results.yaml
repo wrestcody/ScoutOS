@@ -1,0 +1,32 @@
+template: tools.janus.codacy.get_pr_scan_results
+description: Retrieve Codacy PR scan status for a commit.
+inputs:
+  organization:
+    type: string
+    required: true
+  repo:
+    type: string
+    required: true
+  commit_sha:
+    type: string
+    required: true
+steps:
+  - id: get
+    uses: core.http_request
+    with:
+      method: GET
+      url: https://app.codacy.com/api/v3/organizations/${{ inputs.organization }}/repositories/${{ inputs.repo }}/commits/${{ inputs.commit_sha }}/status
+      headers:
+        api-token: ${{ SECRETS.codacy.API_TOKEN }}
+        Accept: application/json
+  - id: map
+    uses: core.transform.jq
+    with:
+      input: ${{ steps.get.output.body }}
+      filter: >-
+        { grade: .grade, issues_blocking: .issues_blocking, details_url: .details_url }
+output:
+  grade: ${{ steps.map.output.json.grade }}
+  issues_blocking: ${{ steps.map.output.json.issues_blocking }}
+  details_url: ${{ steps.map.output.json.details_url }}
+

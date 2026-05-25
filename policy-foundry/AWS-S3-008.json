@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-S3-008",
+  "description": "Require default bucket encryption to be SSE-KMS with approved CMK.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "s3",
+  "rule": {
+    "logic": "SSE-KMS with approved key",
+    "operator": "equals",
+    "field": "bucket.defaultEncryption.algorithm",
+    "expectedValue": "aws:kms"
+  },
+  "severity": "high"
+}
+

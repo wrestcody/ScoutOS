@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ingot-EvidenceHashes",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "hashId": { "type": "string", "description": "SHA-256 of serialized payload" },
+    "policyId": { "type": "string" },
+    "resource": { "type": "string" },
+    "proofId": { "type": "string" },
+    "attachmentId": { "type": "string" },
+    "algorithm": { "type": "string", "enum": ["SHA-256"] },
+    "collectedAt": { "type": "string", "format": "date-time" },
+    "signerKeyId": { "type": "string", "description": "KMS Key ID/ARN used to sign" },
+    "signature": { "type": "string", "description": "Base64 signature over payload hash" },
+    "signatureAlgorithm": { "type": "string", "description": "KMS signing algorithm" }
+  },
+  "required": ["hashId", "policyId", "resource", "algorithm", "collectedAt"]
+}
+

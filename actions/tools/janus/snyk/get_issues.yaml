@@ -1,0 +1,21 @@
+template: tools.janus.snyk.get_issues
+description: Retrieve Snyk issues for an organization and project.
+inputs:
+  org_id:
+    type: string
+    required: true
+  project_id:
+    type: string
+    required: true
+steps:
+  - id: list_issues
+    uses: core.http_request
+    with:
+      method: POST
+      url: https://api.snyk.io/rest/orgs/${{ inputs.org_id }}/issues?version=2024-08-13&project_id=${{ inputs.project_id }}
+      headers:
+        Authorization: token ${{ SECRETS.snyk.API_TOKEN }}
+        Content-Type: application/vnd.api+json
+output:
+  issues: ${{ steps.list_issues.output.json.data }}
+

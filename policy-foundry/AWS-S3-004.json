@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-S3-004",
+  "description": "Enable S3 server access logging to a dedicated, secure logging bucket.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "s3",
+  "rule": {
+    "logic": "Server access logging must be enabled",
+    "operator": "equals",
+    "field": "bucket.logging.enabled",
+    "expectedValue": true
+  },
+  "severity": "medium"
+}
+

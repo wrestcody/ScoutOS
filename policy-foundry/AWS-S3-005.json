@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-S3-005",
+  "description": "Enforce SSL-only access to S3 via bucket policy or account setting.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "s3",
+  "rule": {
+    "logic": "Deny non-SSL requests",
+    "operator": "equals",
+    "field": "bucket.policy.sslOnly",
+    "expectedValue": true
+  },
+  "severity": "high"
+}
+

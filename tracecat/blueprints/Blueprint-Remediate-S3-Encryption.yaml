@@ -1,0 +1,48 @@
+name: Blueprint-Remediate-S3-Encryption
+description: "With steward approval, the Forge hardens buckets with default encryption."
+trigger:
+  type: manual
+
+inputs:
+  - name: bucket
+    type: string
+    required: true
+  - name: approve
+    type: boolean
+    default: false
+  - name: algorithm
+    type: string
+    default: AES256
+  - name: kmsKeyId
+    type: string
+    required: false
+
+secrets:
+  - name: AWS_ACCESS_KEY_ID
+  - name: AWS_SECRET_ACCESS_KEY
+  - name: AWS_SESSION_TOKEN
+
+tasks:
+  - id: guard_approval
+    name: Require explicit approval
+    action: core.assert
+    with:
+      condition: "{{ inputs.approve == true }}"
+      message: "Remediation requires approval=true"
+
+  - id: remediate
+    name: Enable default encryption on the bucket
+    action: tools.janus.aws.s3_enable_encryption.remediate
+    with:
+      bucket: "{{ inputs.bucket }}"
+      algorithm: "{{ inputs.algorithm }}"
+      kmsKeyId: "{{ inputs.kmsKeyId }}"
+
+  - id: case_note
+    name: Note remediation in Hearth case (optional linkage)
+    action: core.cases.add_comment
+    condition: "{{ context.caseId is defined }}"
+    with:
+      caseId: "{{ context.caseId }}"
+      comment: "Remediated S3 encryption on bucket {{ inputs.bucket }} with algorithm {{ inputs.algorithm }}"
+

@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-IAM-002",
+  "description": "Root account must not have active access keys.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "iam",
+  "rule": {
+    "logic": "No access keys for root",
+    "operator": "equals",
+    "field": "account.root.activeAccessKeys",
+    "expectedValue": 0
+  },
+  "severity": "high"
+}
+

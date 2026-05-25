@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-IAM-003",
+  "description": "Access keys older than 90 days must be rotated or disabled.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "iam",
+  "rule": {
+    "logic": "AccessKeyAgeDays <= 90",
+    "operator": "lte",
+    "field": "user.accessKeys.maxAgeDays",
+    "expectedValue": 90
+  },
+  "severity": "medium"
+}
+

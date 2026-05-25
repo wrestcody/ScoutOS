@@ -1,0 +1,16 @@
+{
+  "requestUrlTemplate": "https://example.invalid/mock",
+  "requestType": "GET",
+  "timeoutMilliseconds": 8000,
+  "headers": {},
+  "requestTemplate": "{}",
+  "response": {
+    "translationMap": {
+      "admins": "$['approved_users']"
+    },
+    "translationMapDefaults": {
+      "admins": ""
+    },
+    "successTemplate": "{\"approved_users\": [\"legal.admin@example.com\", \"devops.admin@example.com\", \"rogue.admin@example.com\"]}"
+  }
+}

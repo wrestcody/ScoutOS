@@ -1,0 +1,15 @@
+{
+  "_comment": "Blueprint-ComplianceSiren placeholder. Replace with real Architect export.
+Creates a high-priority task and routes to 'Compliance Triage' queue.",
+  "name": "Blueprint-ComplianceSiren",
+  "type": "workflow",
+  "variables": [
+    { "name": "correlationId", "type": "string" },
+    { "name": "conversationId", "type": "string" },
+    { "name": "topicName", "type": "string" }
+  ],
+  "steps": [
+    { "type": "task", "name": "Create Compliance Triage Task", "priority": "High", "queue": "Compliance Triage", "attributes": { "conversationId": "$(Flow.conversationId)", "topicName": "$(Flow.topicName)", "correlationId": "$(Flow.correlationId)" } },
+    { "type": "end" }
+  ]
+}

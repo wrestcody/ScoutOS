@@ -1,0 +1,100 @@
+name: Blueprint-Augur-OnDemand
+description: "The Augur translates mortal questions into Sumo runes and returns omens."
+trigger:
+  type: manual
+
+inputs:
+  - name: question
+    type: string
+    required: true
+  - name: timeRangeMinutes
+    type: number
+    default: 60
+  - name: templateId
+    type: string
+    required: false
+
+secrets:
+  - name: SUMO_ACCESS_ID
+  - name: SUMO_ACCESS_KEY
+  - name: HYPERPROOF_CLIENT_ID
+  - name: HYPERPROOF_CLIENT_SECRET
+
+tasks:
+  - id: fetch_template
+    name: Try to load template
+    condition: "{{ inputs.templateId is defined }}"
+    action: core.tables.get_row
+    with:
+      table: Ingot-AugurTemplates
+      key: "{{ inputs.templateId }}"
+
+  - id: synthesize_query
+    name: Synthesize Sumo query from question
+    action: core.ai.task
+    with:
+      model: gpt-4o-mini
+      input:
+        system: "You translate natural language security questions into valid Sumo Logic queries. Use concise, efficient searches."
+        prompt: |
+          If a template is provided, adapt it; otherwise, write a direct Sumo query for the question.
+          Template (optional): {{ tasks.fetch_template.result.sumoQuery | default('') }}
+          Question: {{ inputs.question }}
+          Output ONLY the Sumo query.
+
+  - id: choose_query
+    name: Choose query (template override if present)
+    action: core.transform.python
+    with:
+      code: |
+        t = {{ tasks.fetch_template.result | tojson }} if {{ inputs.templateId is defined | tojson }} else None
+        q = {{ tasks.synthesize_query.result.output | tojson }}
+        if t and t.get('sumoQuery'):
+            # naive substitution of NL prompt variables could be added here
+            final_q = t['sumoQuery']
+        else:
+            final_q = q.strip()
+        return {"query": final_q}
+
+  - id: run_sumo
+    name: Execute Sumo search
+    action: tools.janus.sumologic.run_search.run_search
+    with:
+      query: "{{ tasks.choose_query.result.query }}"
+      timeRangeMinutes: "{{ inputs.timeRangeMinutes }}"
+      limit: 1000
+
+  - id: upload_evidence
+    name: Upload results to Hyperproof as evidence (optional)
+    condition: "{{ tasks.run_sumo.result.status == 'success' }}"
+    action: tools.janus.hyperproof.upload_evidence
+    with:
+      controlId: "HP-SUMO-SEARCH"
+      evidenceTitle: "Augur Query Results"
+      evidenceDescription: >
+        Natural language question: {{ inputs.question }}. Query: {{ tasks.choose_query.result.query }}
+      evidenceData:
+        question: "{{ inputs.question }}"
+        query: "{{ tasks.choose_query.result.query }}"
+        resultCount: "{{ tasks.run_sumo.result.resultCount }}"
+        messages: "{{ tasks.run_sumo.result.messages }}"
+        records: "{{ tasks.run_sumo.result.records }}"
+      collectionTimestamp: "{{ now() }}"
+
+  - id: record_history
+    name: Record run history
+    action: core.tables.upsert_row
+    with:
+      table: Ingot-AugurHistory
+      key: "{{ context.runId }}"
+      row:
+        runId: "{{ context.runId }}"
+        templateId: "{{ inputs.templateId | default(null) }}"
+        nlQuestion: "{{ inputs.question }}"
+        sumoQuery: "{{ tasks.choose_query.result.query }}"
+        executedAt: "{{ now() }}"
+        durationMs: 0
+        resultCount: "{{ tasks.run_sumo.result.resultCount | default(0) }}"
+        proofId: "{{ tasks.upload_evidence.result.proofId | default(null) }}"
+        payloadHash: "{{ tasks.upload_evidence.result.payloadHash | default(null) }}"
+

@@ -1,0 +1,6 @@
+{
+  "_comment": "Placeholder Architect flow export. Replace with real export before enabling.",
+  "name": "Change Control Audit",
+  "type": "inboundcall",
+  "notes": "Stub for Terraform."
+}

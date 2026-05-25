@@ -1,0 +1,35 @@
+version: 1
+name: Blueprint-PrivilegedRoster
+trigger:
+  type: schedule
+  schedule:
+    cron: "0 0 1 * *"
+steps:
+  - id: fetch_admins
+    uses: tools.janus.okta.get_group_members
+    with:
+      group_name: "Administrators"
+  - id: get_baseline
+    uses: core.lookups.get
+    with:
+      table: Ingot-ApprovedAdminCount
+      key: default
+  - id: compare_counts
+    uses: core.control.if
+    with:
+      condition: ${{ len(steps.fetch_admins.output.members) != steps.get_baseline.output.value.count }}
+      then:
+        - id: open_case
+          uses: core.cases.create_case
+          with:
+            title: "Privileged Access Roster has changed. Review required."
+            severity: medium
+            fields:
+              before_count: ${{ steps.get_baseline.output.value.count }}
+              after_count: ${{ len(steps.fetch_admins.output.members) }}
+              admins: ${{ steps.fetch_admins.output.members }}
+      else:
+        - id: no_change
+          uses: core.util.noop
+          with: {}
+

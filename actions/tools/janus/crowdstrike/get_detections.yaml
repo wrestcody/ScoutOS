@@ -1,0 +1,39 @@
+template: tools.janus.crowdstrike.get_detections
+description: Retrieve recent CrowdStrike detections for specified time range.
+inputs:
+  filter:
+    type: string
+    required: false
+  limit:
+    type: number
+    required: false
+    default: 100
+steps:
+  - id: oauth2_token
+    uses: core.http_request
+    with:
+      method: POST
+      url: https://api.crowdstrike.com/oauth2/token
+      headers:
+        Content-Type: application/x-www-form-urlencoded
+      body: client_id=${{ SECRETS.crowdstrike.CLIENT_ID }}&client_secret=${{ SECRETS.crowdstrike.CLIENT_SECRET }}
+  - id: list_detections
+    uses: core.http_request
+    with:
+      method: GET
+      url: https://api.crowdstrike.com/detects/queries/detects/v1?limit=${{ inputs.limit }}${{ inputs.filter and ('&filter=' + inputs.filter) or '' }}
+      headers:
+        Authorization: Bearer ${{ steps.oauth2_token.output.json.access_token }}
+  - id: get_summaries
+    uses: core.http_request
+    with:
+      method: POST
+      url: https://api.crowdstrike.com/detects/entities/summaries/GET/v1
+      headers:
+        Authorization: Bearer ${{ steps.oauth2_token.output.json.access_token }}
+        Content-Type: application/json
+      json:
+        ids: ${{ steps.list_detections.output.json.resources }}
+output:
+  detections: ${{ steps.get_summaries.output.json.resources }}
+
