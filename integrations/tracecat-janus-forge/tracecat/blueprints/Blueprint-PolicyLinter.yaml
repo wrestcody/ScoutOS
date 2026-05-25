@@ -1,0 +1,80 @@
+name: Blueprint-PolicyLinter
+description: "The Forge’s inspector validates every ingot before casting."
+trigger:
+  type: webhook
+  source: bitbucket
+  events:
+    - pullrequest:created
+    - pullrequest:updated
+
+inputs:
+  - name: workspace
+    type: string
+    required: true
+  - name: repository_slug
+    type: string
+    required: true
+
+tasks:
+  - id: modified_files
+    name: Get modified policy files
+    action: forges.bitbucket.get_pr_diff
+    with:
+      workspace: "{{ inputs.workspace }}"
+      repo_slug: "{{ inputs.repository_slug }}"
+      pr_id: "{{ trigger.pullrequest.id }}"
+    transform:
+      result: >
+        {{ result.files | selectattr('path', 'match', r'.*\\.json$') | map(attribute='path') | list }}
+
+  - id: fetch_files
+    name: Fetch file contents
+    loop: "{{ tasks.modified_files.result }}"
+    action: forges.bitbucket.get_file_content
+    with:
+      workspace: "{{ inputs.workspace }}"
+      repo_slug: "{{ inputs.repository_slug }}"
+      path: "{{ loop.item }}"
+      ref: "{{ trigger.pullrequest.source.branch.name }}"
+
+  - id: lint
+    name: Run policy linter
+    loop: "{{ tasks.fetch_files.results }}"
+    action: core.transform.python
+    with:
+      code: |
+        import json
+        REQUIRED = ["policyId","description","frameworks","targetPlatform","targetResource","rule","severity"]
+        doc = json.loads({{ loop.item.content | tojson }})
+        errs = []
+        for k in REQUIRED:
+            if k not in doc:
+                errs.append(f"missing required field '{k}'")
+        rule = doc.get("rule", {})
+        for rk in ("field","operator","expectedValue"):
+            if rk not in rule:
+                errs.append(f"rule missing '{rk}'")
+        pid = doc.get("policyId","")
+        if not pid or pid.upper() != pid:
+            errs.append("policyId should be UPPERCASE like AWS-S3-001")
+        return {"path": {{ loop.item.with.path | tojson }}, "errors": errs}
+
+  - id: fail_pr_if_errors
+    name: Fail PR if lints exist
+    action: core.assert
+    with:
+      condition: "{{ (tasks.lint.results | map(attribute='result.errors') | flatten | length) == 0 }}"
+      message: "Policy linter errors detected. See task 'lint' output."
+
+  - id: set_bitbucket_status
+    name: Set Bitbucket commit status
+    action: forges.bitbucket.set_commit_status
+    with:
+      workspace: "{{ inputs.workspace }}"
+      repo_slug: "{{ inputs.repository_slug }}"
+      commit: "{{ trigger.pullrequest.source.commit.hash }}"
+      state: "{{ 'SUCCESSFUL' if (tasks.lint.results | map(attribute='result.errors') | flatten | length) == 0 else 'FAILED' }}"
+      key: "JanusPolicyLinter"
+      name: "Janus Policy Linter"
+      url: "https://tracecat/the-hearth/runs/{{ context.runId }}"
+

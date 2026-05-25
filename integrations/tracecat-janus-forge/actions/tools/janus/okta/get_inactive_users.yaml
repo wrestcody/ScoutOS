@@ -1,0 +1,31 @@
+template: tools.janus.okta.get_inactive_users
+description: List Okta users whose lastLogin is older than N days.
+inputs:
+  days:
+    type: number
+    required: true
+steps:
+  - id: search_users
+    uses: core.http_request
+    with:
+      method: GET
+      # Using search with profile.lastLogin cutoff is not natively supported; fetch and filter.
+      url: https://${{ SECRETS.okta.OKTA_DOMAIN }}/api/v1/users?limit=200
+      headers:
+        Authorization: SSWS ${{ SECRETS.okta.OKTA_API_TOKEN }}
+        Accept: application/json
+  - id: filter
+    uses: core.transform.jq
+    with:
+      input: ${{ steps.search_users.output.body }}
+      filter: >-
+        def days_ago(d): (now - (d * 86400));
+        [ .[] | select(.status != "DEPROVISIONED")
+               | {id, status, lastLogin: (.lastLogin // .lastUpdated // null)} ]
+        | map(select(.lastLogin != null))
+        | map(select((.lastLogin | fromdateiso8601) < days_ago($days)))
+      variables:
+        days: ${{ inputs.days }}
+output:
+  users: ${{ steps.filter.output.json }}
+

@@ -1,0 +1,13 @@
+{
+  "_comment": "Blueprint-AugurQuery placeholder. Replace with real Architect export.",
+  "name": "Blueprint-AugurQuery",
+  "type": "workflow",
+  "variables": [
+    { "name": "correlationId", "type": "string" },
+    { "name": "naturalLanguageRequest", "type": "string" }
+  ],
+  "steps": [
+    { "type": "dataAction", "name": "Query The Augur", "action": "ForgeTool-QueryTheAugur", "input": { "correlationId": "$(Flow.correlationId)", "params": { "naturalLanguageRequest": "$(Flow.naturalLanguageRequest)", "lookbackDays": 30 } }, "outputVar": "augurResult" },
+    { "type": "end" }
+  ]
+}

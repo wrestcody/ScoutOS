@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-S3-007",
+  "description": "Ensure S3 bucket policies do not allow anonymous or public principals.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "s3",
+  "rule": {
+    "logic": "Deny Principal='*' without explicit conditions",
+    "operator": "equals",
+    "field": "bucket.policy.publicAccess",
+    "expectedValue": false
+  },
+  "severity": "critical"
+}
+

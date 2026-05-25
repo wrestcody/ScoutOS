@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ingot-Exceptions",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "exceptionId": { "type": "string" },
+    "policyId": { "type": "string" },
+    "resource": { "type": "string", "description": "e.g., s3://bucket-name or wildcard *" },
+    "owner": { "type": "string" },
+    "rationale": { "type": "string" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "status": { "type": "string", "enum": ["active", "expired", "revoked"] }
+  },
+  "required": ["exceptionId", "policyId", "resource", "owner", "rationale", "createdAt", "expiresAt", "status"]
+}
+

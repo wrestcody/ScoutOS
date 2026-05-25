@@ -1,0 +1,56 @@
+name: Blueprint-CloudGuardian-EventDriven-AWS
+description: "When the clouds shift, the Sentinels re-test the steel in real time."
+trigger:
+  type: webhook
+  source: aws
+  events:
+    - EventBridge
+
+inputs:
+  - name: region
+    type: string
+    default: us-east-1
+
+secrets:
+  - name: AWS_ACCESS_KEY_ID
+  - name: AWS_SECRET_ACCESS_KEY
+  - name: AWS_SESSION_TOKEN
+
+tasks:
+  - id: parse_event
+    name: Parse AWS event
+    action: core.transform.python
+    with:
+      code: |
+        evt = {{ trigger.body | tojson }}
+        detail_type = evt.get('detail-type')
+        detail = evt.get('detail', {})
+        # Support S3 and EC2 SG change notifications
+        if detail_type and 'Object Level' in detail_type:
+            resource = f"s3://{detail.get('bucket', {}).get('name')}"
+            return {"kind": "s3", "resource": resource, "bucket": detail.get('bucket', {}).get('name')}
+        if detail.get('eventName') in ('AuthorizeSecurityGroupIngress','RevokeSecurityGroupIngress','CreateSecurityGroup','DeleteSecurityGroup'):
+            sg = detail.get('requestParameters', {}).get('groupId')
+            return {"kind": "ec2_sg", "resource": sg}
+        return {"kind": "unknown"}
+
+  - id: recheck_s3_encryption
+    name: Re-check S3 default encryption
+    condition: "{{ tasks.parse_event.result.kind == 's3' }}"
+    action: forges.aws.s3_get_bucket_encryption
+    with:
+      region: "{{ inputs.region }}"
+      bucket: "{{ tasks.parse_event.result.bucket }}"
+
+  - id: emit_result
+    name: Emit result to metrics ingot
+    action: core.tables.upsert_row
+    with:
+      table: Ingot-EventChecks
+      key: "{{ now() }}"
+      row:
+        kind: "{{ tasks.parse_event.result.kind }}"
+        resource: "{{ tasks.parse_event.result.resource }}"
+        status: "{{ 'has_encryption' if tasks.recheck_s3_encryption.result.has_encryption else 'no_encryption' }}"
+        checkedAt: "{{ now() }}"
+

@@ -1,0 +1,21 @@
+version: "3.9"
+services:
+  tracecat:
+    image: ghcr.io/tracecathq/tracecat:latest
+    container_name: tracecat
+    environment:
+      - DATABASE_URL=sqlite:////data/tracecat.db
+    ports:
+      - "8080:8080"
+    volumes:
+      - tracecat-data:/data
+  integrations:
+    build: .
+    container_name: janus-forge-integrations
+    env_file:
+      - .env
+    depends_on:
+      - tracecat
+volumes:
+  tracecat-data:
+

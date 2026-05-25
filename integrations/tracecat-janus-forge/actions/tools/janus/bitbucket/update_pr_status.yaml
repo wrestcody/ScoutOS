@@ -1,0 +1,33 @@
+template: tools.janus.bitbucket.update_pr_status
+description: Update Bitbucket PR status and optionally add a description.
+inputs:
+  workspace:
+    type: string
+    required: true
+  repo_slug:
+    type: string
+    required: true
+  pr_id:
+    type: number
+    required: true
+  state:
+    type: string
+    required: true
+  description:
+    type: string
+    required: false
+steps:
+  - id: update
+    uses: core.http_request
+    with:
+      method: POST
+      url: https://api.bitbucket.org/2.0/repositories/${{ inputs.workspace }}/${{ inputs.repo_slug }}/pullrequests/${{ inputs.pr_id }}/statuses/build
+      headers:
+        Authorization: Basic ${{ SECRETS.bitbucket.BASIC_AUTH_B64 }}
+        Content-Type: application/json
+      json:
+        state: ${{ inputs.state }}
+        description: ${{ inputs.description }}
+output:
+  status: ${{ steps.update.output.status }}
+

@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-S3-006",
+  "description": "Set S3 Object Ownership to BucketOwnerEnforced to disable ACLs.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "s3",
+  "rule": {
+    "logic": "Object Ownership must be BucketOwnerEnforced",
+    "operator": "equals",
+    "field": "bucket.ownership",
+    "expectedValue": "BucketOwnerEnforced"
+  },
+  "severity": "medium"
+}
+

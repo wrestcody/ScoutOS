@@ -1,0 +1,18 @@
+{
+  "policyId": "AWS-S3-002",
+  "description": "Block all public access at the account/bucket level for S3.",
+  "frameworks": ["CIS AWS Foundations", "SOC2 CC6.6"],
+  "targetPlatform": "aws",
+  "targetResource": "s3",
+  "rule": {
+    "logic": "S3 public access block must be enabled",
+    "operator": "equals",
+    "field": "bucket.publicAccessBlock.enabled",
+    "expectedValue": true
+  },
+  "severity": "critical",
+  "controlMappings": [
+    { "framework": "CIS AWS Foundations", "controlId": "3.1" }
+  ]
+}
+

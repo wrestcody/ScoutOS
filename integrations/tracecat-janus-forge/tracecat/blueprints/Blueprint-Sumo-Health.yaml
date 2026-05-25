@@ -1,0 +1,29 @@
+name: Blueprint-Sumo-Health
+description: "The Augur checks the pulse of the river of logs."
+trigger:
+  type: schedule
+  cron: "*/30 * * * *"
+
+secrets:
+  - name: SUMO_ACCESS_ID
+  - name: SUMO_ACCESS_KEY
+
+tasks:
+  - id: ingestion_latency
+    name: Check ingestion latency for key sources
+    action: tools.janus.sumologic.run_search.run_search
+    with:
+      query: "_sourceCategory=aws/cloudtrail | max(_messageTime) as last | now() - last as lag | fields lag"
+      timeRangeMinutes: 120
+      limit: 10
+
+  - id: status_ingot
+    name: Record health status
+    action: core.tables.upsert_row
+    with:
+      table: Ingot-SumoHealth
+      key: "{{ now() }}"
+      row:
+        checkedAt: "{{ now() }}"
+        cloudtrailLag: "{{ tasks.ingestion_latency.result.records }}"
+

@@ -1,0 +1,26 @@
+template: tools.janus.okta.get_group_members
+description: Fetch Okta group members by group name using Okta Core API.
+inputs:
+  group_name:
+    type: string
+    required: true
+steps:
+  - id: find_group
+    uses: core.http_request
+    with:
+      method: GET
+      url: https://${{ SECRETS.okta.OKTA_DOMAIN }}/api/v1/groups?q=${{ inputs.group_name }}&limit=1
+      headers:
+        Authorization: SSWS ${{ SECRETS.okta.OKTA_API_TOKEN }}
+        Accept: application/json
+  - id: list_members
+    uses: core.http_request
+    with:
+      method: GET
+      url: https://${{ SECRETS.okta.OKTA_DOMAIN }}/api/v1/groups/${{ steps.find_group.output.json[0].id }}/users
+      headers:
+        Authorization: SSWS ${{ SECRETS.okta.OKTA_API_TOKEN }}
+        Accept: application/json
+output:
+  members: ${{ steps.list_members.output.json }}
+

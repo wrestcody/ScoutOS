@@ -1,0 +1,13 @@
+table: Ingot-ApprovedAdminCount
+description: Baseline count for Okta Administrators group
+schema:
+  key: string
+  value:
+    type: object
+    properties:
+      count: number
+rows:
+  - key: default
+    value:
+      count: 2
+

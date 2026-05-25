@@ -1,0 +1,21 @@
+app:
+  id: forge-app-scr-scout
+  name: SCR Scout Agent
+permissions:
+  scopes:
+    - read:jira-work
+    - write:jira-work
+modules:
+  jira:issuePanel:
+    - key: scr-scout-panel
+      resource: main
+      resolver:
+        function: resolver
+      title: FedRAMP SCR Scout
+      icon: resource:main/shield.svg
+  function:
+    - key: resolver
+      handler: index.handler
+resources:
+  - key: main
+    path: static/hello-world/build

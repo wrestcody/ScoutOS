@@ -1,0 +1,144 @@
+The Janus Forge: Tracecat-Native GRC Automation Engine
+
+Overview
+The Janus Forge is a Tracecat-native GRC automation engine. All orchestration is implemented as Tracecat workflows (Blueprints). Integrations are versioned-as-code as Python UDFs and YAML action templates (Forge Tools). Baselines and exceptions are stored in Tracecat Lookup Tables (Ingots). The Hearth (Tracecat Case Management) is the analyst workspace. Hyperproof stores audit artifacts; Sumo Logic provides observability and run telemetry.
+
+What’s included
+- Blueprints (workflows):
+  - Blueprint-AugurQuery (AI-powered Sumo query via natural language)
+  - Blueprint-PrivilegedRoster (monthly Okta Admins drift monitor with case creation)
+- Forge Tools (custom integrations):
+  - Okta: get_group_members, get_user_mfa_status, get_inactive_users, disable_user
+  - AWS IAM: get_iam_admins, get_user_mfa_status
+  - Sumo Logic: create_and_poll_search_job (Python UDF), log_event
+  - Tenable: get_scan_results, get_assets
+  - Snyk: get_issues, get_pr_scan_results
+  - Codacy: get_repo_issues, get_pr_scan_results
+  - CrowdStrike: get_detections (plus CSPM flow-ready),
+  - Jira: create_ticket, attach_file, get_ticket_status
+  - Bitbucket: update_pr_status, comment_pr
+  - Hyperproof: upload_evidence (Python UDF)
+- Infrastructure & Ops:
+  - Dockerfile and .dockerignore for packaging integrations
+  - docker-compose.yml for local Tracecat + integrations
+  - ECS/Fargate example: infra/ecs/task-def.example.json
+  - Terraform ECS example: infra/ecs/terraform (cluster, task def, service)
+  - CI: .github/workflows/ci.yml (ruff + pytest)
+  - Tests: basic unit tests for Sumo UDF and AWS IAM MFA tool
+  - Docs: docs/hosting-aws-ecs.md, docs/secrets-matrix.md
+
+Repository layout
+```text
+actions/                      # Forge Tools (YAML + Python UDFs)
+  tools/janus/
+    okta/
+    aws/
+    sumologic/
+    tenable/
+    snyk/
+    codacy/
+    crowdstrike/
+    jenkins/
+    jira/
+    bitbucket/
+    hyperproof/
+workflows/                    # Blueprints (Tracecat workflows YAML)
+lookups/                      # Ingots (Tracecat Lookup Tables)
+infra/
+  ecs/
+    task-def.example.json     # ECS task definition example
+    terraform/                # Terraform ECS example (cluster/service)
+.github/workflows/ci.yml      # Lint & test CI
+tests/                        # Pytest unit tests
+Dockerfile
+docker-compose.yml
+.env.example
+README.md
+```
+
+Quickstart (local)
+Prerequisites
+- Docker and Docker Compose
+- Optional: Python 3.11 (for tests and local development)
+
+Steps
+1) Configure environment
+```bash
+cp .env.example .env
+# Fill in required tokens/secrets for local testing
+```
+2) Start Tracecat + integrations
+```bash
+docker compose up -d
+```
+3) Import workflows and action templates in Tracecat
+- Import files from `workflows/` and `actions/` via Tracecat UI or Git-based sync.
+- Create lookup tables (Ingots) from `lookups/` (e.g., Ingot-ApprovedAdminCount).
+- Configure secrets per docs/secrets-matrix.md (in Tracecat Secrets).
+
+4) Run the Blueprints
+- Augur: POST to the webhook trigger for `Blueprint-AugurQuery` with `{ "natural_language_request": "..." }`.
+- Privileged Roster: enable the schedule or run manually to compare Okta admin counts and open a case if drift is detected.
+
+Developer workflow
+- Install and test locally:
+```bash
+pip install -e .
+pre-commit install
+pytest -q
+```
+- Lint:
+```bash
+ruff check .
+ruff format --check .
+```
+
+AWS hosting (ECS Fargate)
+- Build and push the integrations image to ECR, then deploy with ECS:
+  - Follow `docs/hosting-aws-ecs.md` for ECR push and ECS concepts
+  - Use `infra/ecs/terraform` for an example ECS cluster/service and task definition
+  - Or start with `infra/ecs/task-def.example.json` to register a task manually
+
+Example Terraform apply
+```bash
+terraform -chdir=infra/ecs/terraform init
+terraform -chdir=infra/ecs/terraform apply \
+  -var 'region=us-east-1' \
+  -var 'image=ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/janus-forge-integrations:latest' \
+  -var 'private_subnet_ids=["subnet-...","subnet-..."]' \
+  -var 'security_group_id=sg-...' \
+  -var 'sumo_access_id_param=arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/janus/sumo/access_id' \
+  -var 'sumo_access_key_param=arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/janus/sumo/access_key'
+```
+
+Secrets
+- See `docs/secrets-matrix.md` for required variables per tool.
+- Local: use `.env` for testing only. Production: use Tracecat Secrets, AWS SSM Parameter Store, or Secrets Manager.
+
+Security standards
+- Least-privilege IAM for AWS UDFs (e.g., iam:List*, auditmanager:List*, tag:GetResources)
+- No secrets in logs; redact PII; structured JSON logs via `tools.janus.sumologic.log_event`
+- Idempotent operations; correlation IDs for traceability
+
+Roadmap pointer
+- See `docs/hosting-aws-ecs.md` for AWS deployment details.
+- See the Blueprint Roadmap document for Epics and future workflows.
+
+Janus Forge components (current)
+- Hyperproof UDF: `tools/janus/hyperproof/upload_evidence.py` with payload hashing and optional KMS signing.
+- Genesys Collaborate: `tools/janus/genesys/send_message.py` for room or user alerts and approvals.
+- Blueprints: see `tracecat/blueprints/` for Augur, Guardian (AWS), Okta SSO Audit, ConfigHarvest, Genesys Approval Webhook, Remediate S3 Encryption.
+- Ingots: see `ingots/schemas/` including `Ingot-Exceptions`, `Ingot-Approvals`, `Ingot-EvidenceHashes`, `Ingot-IntegrationConfigs`, `Ingot-IntegrationBaselines`.
+
+Confluence linkage
+- Map policies to Confluence pages in `Ingot-PolicyDocs` (`policyId`, `confluencePageId`).
+- `Blueprint-PolicyDoc-Link-Approvals` listens to policy repo pushes, finds recent Jira approval issues for changed policies, and appends links to the mapped Confluence pages.
+- Configure Jira and Confluence secrets; ensure policy IDs appear in approval issue summaries for matching.
+
+Configuration quick reference
+- Provide required secrets per tool (Hyperproof, AWS, Okta, Sumo, Jira, Bitbucket, Snyk, Codacy, CrowdStrike, Tenable, Genesys).
+- For Genesys room posts, pass `genesysConversationId` inputs on relevant blueprints.
+- To enable config drift tickets, populate `Ingot-IntegrationBaselines` with `integration`, `baselineHash`, `baselineSnapshotId`, `baselineConfig`.
+
+License
+Apache-2.0 (proposed)

@@ -1,0 +1,25 @@
+template: tools.janus.codacy.get_repo_issues
+description: Retrieve Codacy issues for a repository.
+inputs:
+  organization_provider:
+    type: string
+    required: true
+  organization_name:
+    type: string
+    required: true
+  repository_name:
+    type: string
+    required: true
+steps:
+  - id: get_issues
+    uses: core.http_request
+    with:
+      method: GET
+      # Docs: https://docs.codacy.com/codacy-api/repositories/
+      url: https://app.codacy.com/api/v3/organizations/${{ inputs.organization_provider }}/${{ inputs.organization_name }}/repositories/${{ inputs.repository_name }}/issues
+      headers:
+        api-token: ${{ SECRETS.codacy.API_TOKEN }}
+        Accept: application/json
+output:
+  issues: ${{ steps.get_issues.output.json.data }}
+

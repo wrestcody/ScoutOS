@@ -1,0 +1,30 @@
+template: tools.janus.okta.disable_user
+description: Disable an Okta user account.
+inputs:
+  user_id:
+    type: string
+    required: true
+  reason:
+    type: string
+    required: false
+steps:
+  - id: deactivate
+    uses: core.http_request
+    with:
+      method: POST
+      url: https://${{ SECRETS.okta.OKTA_DOMAIN }}/api/v1/users/${{ inputs.user_id }}/lifecycle/deactivate?sendEmail=false
+      headers:
+        Authorization: SSWS ${{ SECRETS.okta.OKTA_API_TOKEN }}
+        Accept: application/json
+  - id: suspend
+    uses: core.http_request
+    with:
+      method: POST
+      url: https://${{ SECRETS.okta.OKTA_DOMAIN }}/api/v1/users/${{ inputs.user_id }}/lifecycle/suspend
+      headers:
+        Authorization: SSWS ${{ SECRETS.okta.OKTA_API_TOKEN }}
+        Accept: application/json
+output:
+  status: DEPROVISION_REQUESTED
+  user_id: ${{ inputs.user_id }}
+

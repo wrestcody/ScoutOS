@@ -1,0 +1,15 @@
+{
+  "policyId": "AWS-S3-009",
+  "description": "Ensure S3 Access Points are private and block public access.",
+  "frameworks": ["CIS AWS Foundations"],
+  "targetPlatform": "aws",
+  "targetResource": "s3-access-point",
+  "rule": {
+    "logic": "Access Point PublicAccessBlock must be enabled",
+    "operator": "equals",
+    "field": "accessPoint.publicAccessBlock.enabled",
+    "expectedValue": true
+  },
+  "severity": "high"
+}
+

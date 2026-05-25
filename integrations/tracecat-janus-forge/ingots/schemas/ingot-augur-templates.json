@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ingot-AugurTemplates",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "templateId": { "type": "string" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "nlPrompt": { "type": "string" },
+    "sumoQuery": { "type": "string" },
+    "owner": { "type": "string" },
+    "lastUpdated": { "type": "string", "format": "date-time" }
+  },
+  "required": ["templateId", "sumoQuery", "lastUpdated"]
+}
+

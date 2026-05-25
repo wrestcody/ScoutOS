@@ -1,0 +1,21 @@
+template: tools.janus.sumologic.log_event
+description: Send a JSON event to a Sumo Logic HTTP source.
+inputs:
+  source_url:
+    type: string
+    required: true
+  event:
+    type: object
+    required: true
+steps:
+  - id: send
+    uses: core.http_request
+    with:
+      method: POST
+      url: ${{ inputs.source_url }}
+      headers:
+        Content-Type: application/json
+      json: ${{ inputs.event }}
+output:
+  status: ${{ steps.send.output.status }}
+

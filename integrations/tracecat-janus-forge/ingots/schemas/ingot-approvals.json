@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ingot-Approvals",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "approvalId": { "type": "string" },
+    "type": { "type": "string", "description": "e.g., S3-Encryption-Remediation" },
+    "status": { "type": "string", "enum": ["pending", "approved", "denied"] },
+    "requestedAt": { "type": "string", "format": "date-time" },
+    "decidedAt": { "type": ["string", "null"], "format": "date-time" },
+    "requester": { "type": ["string", "null"] },
+    "approver": { "type": ["string", "null"] },
+    "conversationId": { "type": ["string", "null"] },
+    "messageId": { "type": ["string", "null"] },
+    "context": { "type": "object" }
+  },
+  "required": ["approvalId", "type", "status", "requestedAt", "context"]
+}
+

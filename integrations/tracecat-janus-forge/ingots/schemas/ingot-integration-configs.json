@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ingot-IntegrationConfigs",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "snapshotId": { "type": "string" },
+    "integration": { "type": "string", "description": "snyk|codacy|bitbucket|jira|crowdstrike|tenable" },
+    "collectedAt": { "type": "string", "format": "date-time" },
+    "hash": { "type": "string", "description": "SHA-256 of config payload" },
+    "config": { "type": "object" }
+  },
+  "required": ["snapshotId", "integration", "collectedAt", "hash", "config"]
+}
+

@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Enriched Risk Output Schema",
+  "description": "Schema for the enriched JSON payload sent to the Praetorium_Nexus API.",
+  "type": "object",
+  "properties": {
+    "cce_finding": {
+      "type": "object",
+      "properties": {
+        "control_id": { "type": "string" },
+        "asset_id": { "type": "string" }
+      },
+      "required": ["control_id", "asset_id"]
+    },
+    "risk_assessment": {
+      "type": "object",
+      "properties": {
+        "original_severity": { "type": "string", "enum": ["Low", "Medium", "High", "Critical"] },
+        "refined_risk_score": { "type": "string", "enum": ["Low", "Medium", "High", "Critical"] },
+        "executive_summary": { "type": "string" }
+      },
+      "required": ["original_severity", "refined_risk_score", "executive_summary"]
+    },
+    "remediation": {
+      "type": "object",
+      "properties": {
+        "primary_playbook": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["primary_playbook", "status"]
+    },
+    "source_data": {
+      "type": "object",
+      "description": "The original CCE payload for full context."
+    }
+  },
+  "required": [
+    "cce_finding",
+    "risk_assessment",
+    "remediation",
+    "source_data"
+  ]
+}

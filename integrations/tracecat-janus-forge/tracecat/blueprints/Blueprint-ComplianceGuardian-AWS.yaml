@@ -1,0 +1,287 @@
+name: Blueprint-ComplianceGuardian-AWS
+description: "Sentinels test AWS steel against the Policy Foundry’s mold, with exception forges."
+trigger:
+  type: schedule
+  cron: "0 2 * * *"
+
+inputs:
+  - name: workspace
+    type: string
+    required: true
+  - name: repository_slug
+    type: string
+    default: policy-foundry
+  - name: ref
+    type: string
+    default: main
+  - name: region
+    type: string
+    default: us-east-1
+  - name: ingot_exceptions
+    type: string
+    default: Ingot-Exceptions
+  - name: genesysConversationId
+    type: string
+    required: false
+  - name: genesysMemberUserIds
+    type: array
+    required: false
+    default: []
+
+secrets:
+  - name: AWS_ACCESS_KEY_ID
+  - name: AWS_SECRET_ACCESS_KEY
+  - name: AWS_SESSION_TOKEN
+  - name: HYPERPROOF_CLIENT_ID
+  - name: HYPERPROOF_CLIENT_SECRET
+  - name: GENESYS_LOGIN_BASE
+  - name: GENESYS_API_BASE
+  - name: GENESYS_CLIENT_ID
+  - name: GENESYS_CLIENT_SECRET
+
+tasks:
+  - id: list_policies
+    name: List all policy files
+    action: forges.bitbucket.list_files
+    with:
+      workspace: "{{ inputs.workspace }}"
+      repo_slug: "{{ inputs.repository_slug }}"
+      ref: "{{ inputs.ref }}"
+      path: "/"
+    transform:
+      result: >
+        {{ result.files | select("match", r".*\\.json$") | list }}
+
+  - id: read_policies
+    name: Read policy contents
+    loop: "{{ tasks.list_policies.result }}"
+    action: forges.bitbucket.get_file_content
+    with:
+      workspace: "{{ inputs.workspace }}"
+      repo_slug: "{{ inputs.repository_slug }}"
+      path: "{{ loop.item }}"
+      ref: "{{ inputs.ref }}"
+
+  - id: parse_and_filter_aws
+    name: Filter for AWS-targeted policies
+    loop: "{{ tasks.read_policies.results }}"
+    action: core.transform.jq
+    with:
+      input: "{{ loop.item.content }}"
+      query: |
+        ( . as $p
+          | select(.targetPlatform == "aws")
+          | { policyId, description, severity, targetResource, rule, controlMappings } )
+
+  - id: list_s3_buckets
+    name: List S3 buckets (for S3 policies)
+    action: forges.aws.s3_list_buckets
+    with:
+      region: "{{ inputs.region }}"
+    condition: >
+      {{ (tasks.parse_and_filter_aws.results | map(attribute='result.targetResource') | list) | contains(['s3']) }}
+
+  - id: get_s3_encryption
+    name: Get S3 bucket encryption status
+    loop: "{{ tasks.list_s3_buckets.result.buckets | default([]) }}"
+    action: forges.aws.s3_get_bucket_encryption
+    with:
+      region: "{{ inputs.region }}"
+      bucket: "{{ loop.item.name }}"
+    continueOnError: true
+
+  - id: evaluate_policies
+    name: Evaluate policies against live configs
+    action: core.transform.python
+    with:
+      code: |
+        import json
+        from typing import Any, Dict, List
+
+        def get_field(obj: Dict[str, Any], dotted: str, default=None):
+            cur = obj
+            for part in dotted.split('.'):
+                if isinstance(cur, dict) and part in cur:
+                    cur = cur[part]
+                else:
+                    return default
+            return cur
+
+        s3_results = {{ tasks.get_s3_encryption.results | tojson }}
+        policies = {{ tasks.parse_and_filter_aws.results | map(attribute='result') | tojson }}
+
+        findings: List[Dict[str, Any]] = []
+        for p in policies:
+            if p.get("targetResource") == "s3":
+                for r in s3_results:
+                    bucket = r.get("with", {}).get("bucket")
+                    status = r.get("result", {})
+                    live = {
+                        "bucket": {
+                            "defaultEncryption": {
+                                "enabled": bool(status.get("has_encryption", False)),
+                                "algorithm": status.get("algorithm")
+                            }
+                        }
+                    }
+                    operator = p["rule"]["operator"]
+                    field = p["rule"]["field"]
+                    expected = p["rule"]["expectedValue"]
+                    actual = get_field(live, field)
+
+                    compliant = False
+                    if operator == "equals":
+                        compliant = (actual == expected)
+                    elif operator == "exists":
+                        compliant = (actual is not None)
+                    elif operator == "not_equals":
+                        compliant = (actual != expected)
+                    elif operator == "in":
+                        compliant = (actual in expected if isinstance(expected, list) else False)
+                    elif operator == "not_in":
+                        compliant = (actual not in expected if isinstance(expected, list) else False)
+                    else:
+                        compliant = False
+
+                    findings.append({
+                        "policyId": p["policyId"],
+                        "description": p["description"],
+                        "severity": p["severity"],
+                        "resource": f"s3://{bucket}",
+                        "rule": p["rule"],
+                        "actual": actual,
+                        "expected": expected,
+                        "compliant": compliant,
+                        "controlMappings": p.get("controlMappings", [])
+                    })
+
+        return {"findings": findings}
+
+  - id: load_exceptions
+    name: Load active exceptions
+    action: core.tables.get_rows
+    with:
+      table: "{{ inputs.ingot_exceptions }}"
+
+  - id: filter_exceptions
+    name: Filter out findings with valid exceptions
+    action: core.transform.python
+    with:
+      code: |
+        from datetime import datetime, timezone
+        exceptions = {{ tasks.load_exceptions.result | tojson }} or []
+        findings = {{ tasks.evaluate_policies.result.findings | tojson }}
+
+        def is_covered(exc, finding):
+            # Match on policyId and resource (supports wildcard '*')
+            pid_ok = exc.get('policyId') == finding.get('policyId')
+            res = exc.get('resource', '*')
+            res_ok = (res == '*') or (res == finding.get('resource'))
+            now = datetime.now(timezone.utc)
+            try:
+                exp = datetime.fromisoformat(exc.get('expiresAt').replace('Z','+00:00'))
+            except Exception:
+                exp = now
+            active = exc.get('status') == 'active' and now < exp
+            return pid_ok and res_ok and active
+
+        filtered = []
+        suppressed = []
+        for f in findings:
+            if any(is_covered(e, f) for e in exceptions):
+                suppressed.append(f)
+            else:
+                filtered.append(f)
+
+        return {"findings": filtered, "suppressed": suppressed}
+
+  - id: create_cases_for_failures
+    name: Create Hearth cases for failed checks
+    loop: "{{ tasks.filter_exceptions.result.findings }}"
+    condition: "{{ loop.item.compliant == false }}"
+    action: core.cases.create
+    with:
+      title: "Non-compliance: {{ loop.item.policyId }} on {{ loop.item.resource }}"
+      description: |
+        Policy {{ loop.item.policyId }} failed on {{ loop.item.resource }}.
+        Expected: {{ loop.item.expected }}
+        Actual: {{ loop.item.actual }}
+        Rule: {{ loop.item.rule | tojson }}
+      severity: "{{ loop.item.severity }}"
+      labels:
+        - "The Hearth"
+        - "{{ loop.item.policyId }}"
+        - "{{ loop.item.resource }}"
+
+  - id: notify_genesys_failures
+    name: Notify Genesys for failed checks
+    loop: "{{ tasks.filter_exceptions.result.findings }}"
+    condition: "{{ loop.item.compliant == false }}"
+    action: tools.janus.genesys.send_message.send_message
+    with:
+      conversationId: "{{ inputs.genesysConversationId | default(null) }}"
+      memberUserIds: "{{ inputs.genesysMemberUserIds }}"
+      text: >
+        [Guardian] FAILED - {{ loop.item.policyId }} on {{ loop.item.resource }}. Expected {{ loop.item.expected }}, got {{ loop.item.actual }}. Severity: {{ loop.item.severity }}
+
+  - id: request_s3_encryption_fix
+    name: Request S3 encryption remediation approval
+    loop: "{{ tasks.filter_exceptions.result.findings }}"
+    condition: "{{ loop.item.compliant == false and loop.item.policyId == 'AWS-S3-001' }}"
+    action: start_blueprint
+    with:
+      name: Blueprint-Remediation-Request-S3-Encryption
+      inputs:
+        bucket: "{{ loop.item.resource | replace('s3://','') }}"
+        algorithm: AES256
+
+  - id: upload_evidence_successes
+    name: Upload Hyperproof evidence for compliant checks
+    loop: "{{ tasks.filter_exceptions.result.findings }}"
+    condition: "{{ loop.item.compliant == true }}"
+    action: tools.janus.hyperproof.upload_evidence
+    with:
+      controlId: "{{ (loop.item.controlMappings | default([]) | selectattr('hyperproofControlId','defined') | list | first | default({})).hyperproofControlId }}"
+      evidenceTitle: "Compliance Check: {{ loop.item.policyId }} on {{ loop.item.resource }}"
+      evidenceDescription: >
+        Control check succeeded for {{ loop.item.policyId }} on {{ loop.item.resource }}.
+        Expected {{ loop.item.expected }}, observed {{ loop.item.actual }}.
+      evidenceData:
+        policyId: "{{ loop.item.policyId }}"
+        resource: "{{ loop.item.resource }}"
+        rule: "{{ loop.item.rule }}"
+        expected: "{{ loop.item.expected }}"
+        actual: "{{ loop.item.actual }}"
+        evaluatedAt: "{{ now() }}"
+      collectionTimestamp: "{{ now() }}"
+
+  - id: upsert_evidence_hash
+    name: Record evidence hash for integrity verification
+    loop: "{{ tasks.upload_evidence_successes.results }}"
+    condition: "{{ loop.item.result.status == 'success' }}"
+    action: core.tables.upsert_row
+    with:
+      table: Ingot-EvidenceHashes
+      key: "{{ loop.item.result.payloadHash }}"
+      row:
+        hashId: "{{ loop.item.result.payloadHash }}"
+        policyId: "{{ tasks.filter_exceptions.result.findings[loop.index].policyId }}"
+        resource: "{{ tasks.filter_exceptions.result.findings[loop.index].resource }}"
+        proofId: "{{ loop.item.result.proofId }}"
+        attachmentId: "{{ loop.item.result.attachmentId }}"
+        algorithm: "{{ loop.item.result.hashAlgorithm }}"
+        collectedAt: "{{ now() }}"
+
+  - id: record_metrics
+    name: Record compliance metrics to ingot
+    action: core.tables.upsert_row
+    with:
+      table: Ingot-ComplianceMetrics
+      key: "{{ format_datetime(now(), '%Y-%m-%dT%H:%M:%SZ') }}"
+      row:
+        runAt: "{{ now() }}"
+        total: "{{ tasks.evaluate_policies.result.findings | length }}"
+        suppressed: "{{ tasks.filter_exceptions.result.suppressed | length }}"
+        passed: "{{ tasks.filter_exceptions.result.findings | selectattr('compliant', 'equalto', true) | list | length }}"
+        failed: "{{ tasks.filter_exceptions.result.findings | selectattr('compliant', 'equalto', false) | list | length }}"
+

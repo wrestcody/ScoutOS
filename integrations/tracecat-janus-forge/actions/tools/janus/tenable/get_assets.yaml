@@ -1,0 +1,32 @@
+template: tools.janus.tenable.get_assets
+description: Retrieve assets from Tenable.io.
+inputs:
+  last_seen_after:
+    type: string
+    required: false
+steps:
+  - id: list_assets
+    uses: core.http_request
+    with:
+      method: GET
+      url: https://cloud.tenable.com/assets
+      headers:
+        X-ApiKeys: accessKey=${{ SECRETS.tenable.ACCESS_KEY }}; secretKey=${{ SECRETS.tenable.SECRET_KEY }}
+        Accept: application/json
+  - id: filter
+    uses: core.transform.jq
+    with:
+      input: ${{ steps.list_assets.output.body }}
+      filter: >-
+        if .assets then
+          if $last_seen_after then
+            .assets | map(select(.last_seen >= $last_seen_after))
+          else
+            .assets
+          end
+        else [] end
+      variables:
+        last_seen_after: ${{ inputs.last_seen_after }}
+output:
+  assets: ${{ steps.filter.output.json }}
+

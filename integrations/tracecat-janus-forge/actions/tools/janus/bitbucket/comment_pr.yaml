@@ -1,0 +1,30 @@
+template: tools.janus.bitbucket.comment_pr
+description: Post a comment on a Bitbucket PR.
+inputs:
+  workspace:
+    type: string
+    required: true
+  repo_slug:
+    type: string
+    required: true
+  pr_id:
+    type: number
+    required: true
+  comment:
+    type: string
+    required: true
+steps:
+  - id: comment
+    uses: core.http_request
+    with:
+      method: POST
+      url: https://api.bitbucket.org/2.0/repositories/${{ inputs.workspace }}/${{ inputs.repo_slug }}/pullrequests/${{ inputs.pr_id }}/comments
+      headers:
+        Authorization: Basic ${{ SECRETS.bitbucket.BASIC_AUTH_B64 }}
+        Content-Type: application/json
+      json:
+        content:
+          raw: ${{ inputs.comment }}
+output:
+  comment_id: ${{ steps.comment.output.json.id }}
+

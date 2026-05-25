@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  fulcrum-auditor:
+    build: ./fulcrum-auditor
+    container_name: fulcrum-auditor
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mock-config-service
+      - mock-git-service
+      - mock-ticketing-service
+      - fulcrum-attestor
+
+  mock-config-service:
+    build: ./mock-config-service
+    container_name: mock-config-service
+    ports:
+      - "8001"
+
+  mock-git-service:
+    build: ./mock-git-service
+    container_name: mock-git-service
+    ports:
+      - "8002"
+
+  mock-ticketing-service:
+    build: ./mock-ticketing-service
+    container_name: mock-ticketing-service
+    ports:
+      - "8003"
+
+  fulcrum-attestor:
+    build: ./fulcrum-attestor
+    container_name: fulcrum-attestor
+    ports:
+      - "8004"
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "8080:80"

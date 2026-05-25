@@ -1,0 +1,25 @@
+template: tools.janus.jenkins.get_recent_builds
+description: Retrieve recent builds for a Jenkins job.
+inputs:
+  base_url:
+    type: string
+    required: true
+  job:
+    type: string
+    required: true
+  limit:
+    type: number
+    required: false
+    default: 10
+steps:
+  - id: list_builds
+    uses: core.http_request
+    with:
+      method: GET
+      url: ${{ inputs.base_url }}/job/${{ inputs.job }}/api/json?tree=builds[number,status,timestamp,result,url]{,${{ inputs.limit }}}
+      headers:
+        Authorization: Basic ${{ SECRETS.jenkins.BASIC_AUTH_B64 }}
+        Accept: application/json
+output:
+  builds: ${{ steps.list_builds.output.json.builds }}
+
