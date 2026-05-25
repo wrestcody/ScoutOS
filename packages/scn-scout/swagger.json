@@ -1,0 +1,107 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "SCN Scout: FedRAMP 20x Engine API",
+    "version": "2.1.0",
+    "description": "API for automating FedRAMP Significant Change Notifications (SCN) with deterministic evidence and OSCAL integration.",
+    "contact": {
+      "name": "FedRAMP 20x Automation Team",
+      "url": "https://fedramp.gov"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/api/docs": {
+      "get": {
+        "description": "Swagger UI for API documentation",
+        "responses": {
+          "200": {
+            "description": "Returns Swagger UI"
+          }
+        }
+      }
+    },
+    "/api/ai/local": {
+      "post": {
+        "summary": "Proxy to Local LLM (Ollama)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "model": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Local AI response"
+          }
+        }
+      }
+    },
+    "/api/ai/guidance-bedrock": {
+      "post": {
+        "summary": "Proxy to AWS Bedrock",
+        "responses": {
+          "200": {
+            "description": "Bedrock guidance response"
+          }
+        }
+      }
+    },
+    "/api/mcp": {
+      "get": {
+        "summary": "Model Context Protocol (MCP) Endpoint",
+        "description": "Returns application context for LLMs following the MCP standard."
+      }
+    },
+    "/api/ai/categorize": {
+      "post": {
+        "summary": "Suggest a FedRAMP 20x category"
+      }
+    },
+    "/api/ai/hla": {
+      "post": {
+        "summary": "Translate HLA to deterministic JSON"
+      }
+    },
+    "/api/telemetry/sync": {
+      "post": {
+        "summary": "Telemetry Sync Simulator"
+      }
+    },
+    "/api/validate/external": {
+      "post": {
+        "summary": "Run external OSCAL validation tools (Lula, NIST CLI)",
+        "description": "Proxies requests to local CLI tools if installed, otherwise simulates results."
+      }
+    },
+    "/api/vault/verify": {
+      "post": {
+        "summary": "Verify secret existence/status in external vault (AWS Secrets Manager, Vault)",
+        "responses": {
+          "200": {
+            "description": "Vault verification status"
+          }
+        }
+      }
+    }
+  },
+  "components": {},
+  "tags": []
+}
