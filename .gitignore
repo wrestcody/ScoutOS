@@ -22,3 +22,7 @@ tfsec
 
 # Ignore workbench build artifacts
 workbench/backend/
+
+# Ignore encrypted environment files (must never be committed)
+scoutos-hub/.env.enc
+*.env.enc

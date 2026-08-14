@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scoutos"
+version = "0.1.0"
+description = "An extensible, secure framework for collecting compliance and security evidence."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Cody Weaver" }]
+keywords = ["compliance", "security", "evidence", "collector", "aws"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+[project.dependencies]
+boto3 = ">=1.28,<2"
+requests = ">=2.31,<3"
+jsonschema = ">=4.17"
+in-toto = ">=2.0"
+securesystemslib = ">=0.31"
+cryptography = ">=41.0"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-mock>=3.12",
+    "moto[s3,iam]>=4.2",
+    "responses>=0.24",
+]
+
+[tool.setuptools.packages.find]
+include = ["collectors*", "witness_ingestion*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra"

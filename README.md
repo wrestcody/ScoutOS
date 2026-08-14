@@ -1,54 +1,129 @@
-# scoutos: The Extensible Evidence Collection Framework
+# ScoutOS
 
-`scoutos` is an automated, secure, and extensible framework for collecting compliance and security evidence from various cloud and SaaS platforms.
+An extensible, secure framework for collecting compliance and security evidence
+from cloud and SaaS platforms. Collectors fetch data, normalize it into a
+standardized evidence object, and store it in an immutable evidence data lake.
 
-## Core Concepts
+## Overview
 
-*   **Collectors**: Python scripts that connect to an API, fetch data, and format it into a standardized evidence object.
-*   **Evidence Data Lake**: An immutable S3 bucket where all collected evidence is stored securely.
-*   **Collector Workbench**: A future developer tool to accelerate the creation of new collectors.
+ScoutOS is built around three ideas:
 
-## Evidence Schema
+- **Collectors** — Python Lambda functions that connect to an API, fetch data,
+  and format it into a standardized evidence object.
+- **Evidence Data Lake** — an immutable S3 bucket where all collected evidence
+  is stored securely, signed via in-toto attestations, and uploaded to
+  [Archivista](https://docs.testifysec.com/archivista/).
+- **Schema** — every piece of evidence conforms to `schema/evidence.schema.json`,
+  keeping the data lake consistent and queryable.
 
-All evidence collected by `scoutos` conforms to a standardized JSON schema, located at `schema/evidence.schema.json`. This ensures that all data in the evidence lake is consistent and queryable.
+## Architecture
 
-### Schema Fields
-
-| Field                  | Type           | Description                                                                    |
-| ---------------------- | -------------- | ------------------------------------------------------------------------------ |
-| `evidence_id`          | string (uuid)  | A unique identifier for this piece of evidence.                                  |
-| `collector_name`       | string         | The name of the collector that gathered this evidence.                           |
-| `collection_timestamp` | string (date-time) | The ISO 8601 timestamp of when the evidence was collected.                       |
-| `target_account_id`    | string         | The ID of the account or environment the evidence was collected from.          |
-| `evidence_payload`     | object/array   | The actual evidence data, which can be any valid JSON object or array.         |
-| `schema_version`       | string         | The version of the evidence schema used.                                       |
-
-### Example Evidence Object
-
-```json
-{
-  "evidence_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
-  "collector_name": "aws-iam-password-policy",
-  "collection_timestamp": "2025-10-13T19:18:00Z",
-  "target_account_id": "123456789012",
-  "evidence_payload": {
-    "MinimumPasswordLength": 8,
-    "RequireSymbols": true,
-    "RequireNumbers": true,
-    "RequireUppercaseCharacters": true,
-    "RequireLowercaseCharacters": true,
-    "PasswordReusePrevention": 24,
-    "MaxPasswordAge": 90
-  },
-  "schema_version": "1.0.0"
-}
+```
+┌────────────┐   ┌─────────────────┐   ┌──────────────────────┐   ┌───────────┐
+│ Collector  │──▶│ Evidence Data   │──▶│ Witness Ingestion    │──▶│ Archivista│
+│ (Lambda)   │   │ Lake (S3)       │   │ Lambda (sign + push) │   │ (DSL)     │
+└────────────┘   └─────────────────┘   └──────────────────────┘   └───────────┘
 ```
 
-## Terraform Modules
+- **Collectors** write raw evidence JSON to S3.
+- The **Witness Ingestion** Lambda is triggered on new objects, signs them with
+  an in-toto DSSE envelope, and uploads the signed attestation to Archivista.
+- **Terraform** (`terraform/`) provisions the VPC, S3 bucket, IAM boundary, and
+  the Lambda functions.
 
-This repository contains the Terraform code to deploy the entire `scoutos` engine.
+## Repository Layout
 
-*   `modules/s3-evidence-bucket`: Creates the secure, immutable S3 bucket for evidence storage.
-*   `modules/vpc`: Creates the dedicated VPC for running collectors.
-*   `modules/iam-permissions-boundary`: Defines the IAM permissions boundary for all collectors.
-*   `security-services.tf`: Configures account-level security services like GuardDuty and Macie.
+```
+collectors/            Collector modules (Python + Terraform)
+  aws_iam/             AWS IAM password policy collector
+  github/              GitHub branch protection collector
+grc-controls-witness/  OPA/Rego policies + GRC control witness examples
+schema/                evidence.schema.json (JSON Schema draft-07)
+terraform/             Infrastructure-as-code for the evidence lake
+tests/                 pytest suite
+witness_ingestion/     Signing + upload Lambda
+workbench/             (future) collector authoring UI
+scoutos-hub/           Web UI dashboard (frontend)
+```
+
+## Prerequisites
+
+- Python 3.10+
+- Terraform 1.x
+- An AWS account
+- (Optional) A running [Archivista](https://docs.testifysec.com/archivista/) instance
+
+## Quick Start
+
+### 1. Install Python dependencies
+
+```bash
+pip install -e ".[dev]"
+```
+
+### 2. Run the tests
+
+```bash
+pytest
+```
+
+This validates sample evidence against the schema and exercises the collectors
+against mocked AWS services.
+
+### 3. Worked example: run the AWS IAM collector
+
+```bash
+# Set the environment the collector expects
+export EVIDENCE_BUCKET=scoutos-evidence-store-12345
+export TARGET_ACCOUNT_ID=123456789012
+
+# Run it with a mocked AWS environment (see tests for the pattern):
+python -c "
+from collectors.aws_iam.collector import handler
+print(handler({}, None))
+"
+```
+
+The collector writes a JSON evidence object to
+`s3://<bucket>/aws-iam-password-policy/<account_id>/<evidence_id>.json`.
+
+### 4. Deploy the infrastructure
+
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars   # fill in real values
+terraform init
+terraform plan
+terraform apply
+```
+
+### 5. Add a new collector
+
+Copy the pattern in `collectors/aws_iam/`:
+
+1. Create `collectors/<name>/collector.py` implementing a `handler(event, context)`
+   that produces a valid evidence object.
+2. Add a `terraform.tf` / `versions.tf` module for the Lambda.
+3. Wire it into `terraform/main.tf`.
+4. Add a test under `tests/collectors/`.
+
+## Deployment Boundaries
+
+- Collectors run in a private VPC with an egress-only security group.
+- Every collector role is constrained by a permissions boundary.
+- The S3 evidence bucket is immutable and versioned; writes are restricted to
+  collector roles.
+- Evidence is signed in-toto before leaving the account.
+
+## Teardown
+
+```bash
+cd terraform
+terraform destroy
+```
+
+This removes all provisioned resources (VPC, bucket, Lambdas, IAM roles).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
